@@ -1,0 +1,25 @@
+# Veloce agent systemd unit (spec 2.1, 8: dedicated low-privilege user,
+# ProtectSystem=strict, socket under /run/veloce).
+[Unit]
+Description=Lightrider Veloce PQC agent (wolfCrypt FIPS 140-3 #4718)
+After=local-fs.target
+
+[Service]
+Type=simple
+User=veloce
+Group=veloce
+ExecStart=/opt/veloce/bin/veloce-agent --config /etc/veloce/agent.json --quiet
+Restart=on-failure
+RuntimeDirectory=veloce
+RuntimeDirectoryMode=0750
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/run/veloce
+NoNewPrivileges=true
+PrivateTmp=true
+# EMS is disabled by default; the agent opens no network sockets in that
+# mode (verified by the gate battery). Uncomment to enforce at the kernel:
+# RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

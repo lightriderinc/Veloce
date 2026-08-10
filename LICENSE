@@ -1,0 +1,49 @@
+Lightrider Inc Commercial License for Veloce PQC SDK
+Version 1.0 (DRAFT: subject to Lightrider legal review before any release)
+
+Copyright (c) 2026 Lightrider Inc. All rights reserved.
+
+1. Grant. Lightrider Inc ("Lightrider") grants you a non-exclusive,
+   non-transferable, royalty-free license to download, install, and use the
+   Veloce PQC SDK ("the Software"), in source and object-code form for
+   Lightrider-owned components, for any lawful purpose, subject to the terms
+   below. Redistribution of unmodified copies of the Software is permitted
+   provided this license and the THIRD_PARTY_NOTICES file are retained.
+
+2. Embedded cryptographic module. The Software includes the wolfCrypt
+   FIPS 140-3 module and related wolfSSL object code, licensed to Lightrider
+   under a commercial agreement with wolfSSL Inc. This component is provided
+   in object-code form only. You may not extract, reverse engineer, rename,
+   patch, recompile, or redistribute the wolfSSL component separately from
+   the Software. wolfSSL source code is not part of this distribution and is
+   not licensed to you under this agreement.
+
+3. Modifications. You may modify Lightrider-owned source components
+   (qSearch, the Veloce agent sources, the Python SDK, the CLI) for your own
+   use. You may not distribute modified versions without written permission
+   from Lightrider.
+
+4. Attribution. Documentation and derived products must retain the notice:
+   "Built with wolfCrypt (FIPS 140-3 certificate #4718)" and the wolfSSL
+   copyright notices reproduced in THIRD_PARTY_NOTICES.md. This license does
+   not sublicense wolfSSL to you and does not purport to do so.
+
+5. No FIPS claim transfer. FIPS 140-3 validation applies to the wolfCrypt
+   module (CMVP certificate #4718) on its tested operational environments
+   only. Lightrider makes no representation that your use of the Software
+   constitutes a validated deployment on your environment.
+
+6. U.S. Government rights. The Software is commercial computer software
+   under FAR 12.211/12.212 and DFARS 252.227-7015; government end users
+   acquire only the rights specified in this license.
+
+7. Warranty and liability. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT
+   WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+   IN NO EVENT SHALL LIGHTRIDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+   LIABILITY ARISING FROM THE USE OF THE SOFTWARE.
+
+8. Export. You are responsible for compliance with applicable export
+   control regulations for cryptographic software.
+
+Contact: legal@lightriderinc.com

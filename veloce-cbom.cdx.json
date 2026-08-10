@@ -1,0 +1,65 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "metadata": {
+    "tools": [
+      {
+        "vendor": "Lightrider Inc",
+        "name": "Veloce Agent",
+        "version": "1.0.0"
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "cryptographic-asset",
+      "name": "wolfCrypt FIPS 140-3 module",
+      "version": "5.2.1",
+      "cryptoProperties": {
+        "assetType": "certificate",
+        "certificateProperties": {
+          "certificationLevel": "FIPS 140-3",
+          "certificateNumber": "#4718"
+        }
+      },
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "135c513634571c5a163d07652d95b9a2e3b78b90e6771d2797f696a78a868679"
+        }
+      ]
+    },
+    {
+      "type": "cryptographic-asset",
+      "name": "ML-KEM-768",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "kem",
+          "parameterSetIdentifier": "768",
+          "nistQuantumSecurityLevel": 3
+        }
+      }
+    },
+    {
+      "type": "cryptographic-asset",
+      "name": "ML-DSA-65",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "signature",
+          "parameterSetIdentifier": "65",
+          "nistQuantumSecurityLevel": 3
+        }
+      }
+    },
+    {
+      "type": "cryptographic-asset",
+      "name": "wolfEntropy (SP 800-90B ESV source)",
+      "cryptoProperties": {
+        "assetType": "related-crypto-material"
+      }
+    }
+  ]
+}

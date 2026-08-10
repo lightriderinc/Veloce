@@ -1,0 +1,13 @@
+[package]
+name = "qsearch"
+version = "1.0.0"
+edition = "2021"
+description = "Veloce qSearch: cryptographic discovery and CBOM engine (Lightrider Inc)"
+license-file = "../LICENSE"
+
+[[bin]]
+name = "qsearch"
+path = "src/main.rs"
+
+[profile.release]
+lto = true

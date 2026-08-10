@@ -1,0 +1,16 @@
+qsearch 1.0.0 run log
+mode: scan
+root: /etc/ssl/certs
+started_unix: 1786396284 (2026-08-10)
+duration_ms: 35
+files_seen: 245
+files_scanned: 245
+skipped_over_4MB: 0
+skipped_binary_or_unreadable: 0
+findings_total: 371
+findings_quantum_vulnerable: 371
+findings_pqc_ready: 0
+findings_context: 0
+agent_records_merged: false
+outputs: findings.json findings.csv cbom.cdx.json m2302-inventory.json executive-summary.txt workbook-discovery-findings.csv workbook-scanning-log.csv
+workbook_reference: Light_Rider_CBOM_Template_Updated.xlsx

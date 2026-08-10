@@ -1,0 +1,21 @@
+Veloce qSearch executive summary
+Lightrider Inc | Veloce PQC SDK
+
+Scan root: /
+Files scanned: 32
+Total findings: 32
+Quantum-vulnerable findings: 8
+High-risk findings: 7
+PQC-ready findings: 0
+
+Quantum-vulnerable algorithms by count:
+      1  SSH host key: DSA
+      1  SSH host key: ECDSA
+      1  SSH host key: Ed25519
+      1  SSH host key: RSA
+      1  kernel algorithm: dh
+      1  kernel algorithm: md5
+      1  kernel algorithm: pkcs1pad(rsa,sha512)
+      1  kernel algorithm: rsa
+
+Outputs: findings.json (canonical), findings.csv, cbom.cdx.json (CycloneDX 1.6), m2302-inventory.json, workbook-discovery-findings.csv and workbook-scanning-log.csv (Light_Rider_CBOM_Template_Updated.xlsx sheets), executive-summary.txt; runtime detail in qsearch-run.log

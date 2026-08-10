@@ -1,0 +1,13 @@
+[package]
+name = "veloce-cli"
+version = "1.0.0"
+edition = "2021"
+description = "Veloce CLI: operator commands for the Lightrider Veloce agent"
+license-file = "../LICENSE"
+
+[[bin]]
+name = "veloce"
+path = "src/main.rs"
+
+[profile.release]
+lto = true

@@ -1,0 +1,70 @@
+{
+  "format": "veloce-m2302-inventory/1",
+  "generated_unix": 1786381240,
+  "entries": [
+    {
+      "information_system": "/",
+      "asset": "/proc/crypto",
+      "cryptographic_algorithm": "kernel algorithm: dh",
+      "usage": "kernel crypto API",
+      "quantum_vulnerable": true,
+      "evidence": "/proc/crypto name=dh"
+    },
+    {
+      "information_system": "/",
+      "asset": "/proc/crypto",
+      "cryptographic_algorithm": "kernel algorithm: md5",
+      "usage": "kernel crypto API",
+      "quantum_vulnerable": true,
+      "evidence": "/proc/crypto name=md5"
+    },
+    {
+      "information_system": "/",
+      "asset": "/proc/crypto",
+      "cryptographic_algorithm": "kernel algorithm: pkcs1pad(rsa,sha512)",
+      "usage": "kernel crypto API",
+      "quantum_vulnerable": true,
+      "evidence": "/proc/crypto name=pkcs1pad(rsa,sha512)"
+    },
+    {
+      "information_system": "/",
+      "asset": "/proc/crypto",
+      "cryptographic_algorithm": "kernel algorithm: rsa",
+      "usage": "kernel crypto API",
+      "quantum_vulnerable": true,
+      "evidence": "/proc/crypto name=rsa"
+    },
+    {
+      "information_system": "/",
+      "asset": "/etc/ssh/ssh_host_rsa_key.pub",
+      "cryptographic_algorithm": "SSH host key: RSA",
+      "usage": "authentication (SSH host identity)",
+      "quantum_vulnerable": true,
+      "evidence": "/etc/ssh/ssh_host_rsa_key.pub (ssh-rsa)"
+    },
+    {
+      "information_system": "/",
+      "asset": "/etc/ssh/ssh_host_dsa_key.pub",
+      "cryptographic_algorithm": "SSH host key: DSA",
+      "usage": "authentication (SSH host identity)",
+      "quantum_vulnerable": true,
+      "evidence": "/etc/ssh/ssh_host_dsa_key.pub (ssh-dss)"
+    },
+    {
+      "information_system": "/",
+      "asset": "/etc/ssh/ssh_host_ed25519_key.pub",
+      "cryptographic_algorithm": "SSH host key: Ed25519",
+      "usage": "authentication (SSH host identity)",
+      "quantum_vulnerable": true,
+      "evidence": "/etc/ssh/ssh_host_ed25519_key.pub (ssh-ed25519)"
+    },
+    {
+      "information_system": "/",
+      "asset": "/etc/ssh/ssh_host_ecdsa_key.pub",
+      "cryptographic_algorithm": "SSH host key: ECDSA",
+      "usage": "authentication (SSH host identity)",
+      "quantum_vulnerable": true,
+      "evidence": "/etc/ssh/ssh_host_ecdsa_key.pub (ecdsa-sha2-nistp256)"
+    }
+  ]
+}

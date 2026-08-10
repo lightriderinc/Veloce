@@ -1,0 +1,32 @@
+# Licensed wolfSSL commercial FIPS bundle: confidential under the wolfSSL
+# agreement (spec 8.1). Never commit, publish, or archive these paths.
+wolfssl-5.9.2-commercial-fips-linuxv5.2.1/
+vendor/
+*.7z
+
+# Build outputs (contain wolfSSL-derived source copies and object code).
+build/
+qsearch/target/
+cli/target/
+*.o
+*.so
+*.so.*
+
+# Python
+__pycache__/
+*.egg-info/
+.pytest_cache/
+python/dist/
+
+# Local agent state
+.veloce/
+
+# Requirement source documents (internal)
+*.docx
+Light_Rider_CBOM_Template_Updated.xlsx
+plan/*.aux
+plan/*.log
+plan/*.out
+plan/*.toc
+plan/*.fls
+plan/*.fdb_latexmk
