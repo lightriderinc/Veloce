@@ -15,7 +15,22 @@ JOBS="$(nproc)"
 [ -e "$SRC/configure" ] || { echo "build_fips: licensed bundle not found at vendor/wolfssl" >&2; exit 1; }
 
 mkdir -p "$ROOT/build" "$OUT"
-rsync -a --delete --copy-links "$SRC/" "$BUILD/"
+
+# Some provisioned bundles contain a top-level convenience symlink named
+# after the bundle that resolves back to the bundle root. Following that link
+# with --copy-links recursively copies the tree until rsync fails. Exclude
+# only this verified self-link; retain normal vendor symlinks. The build tree
+# is a disposable mirror, so --delete-excluded also removes remnants from a
+# previously interrupted recursive copy.
+RSYNC_EXCLUDES=()
+SRC_REAL="$(readlink -f "$SRC")"
+SELF_LINK="$SRC/$(basename "$SRC_REAL")"
+if [ -L "$SELF_LINK" ] && [ "$(readlink -f "$SELF_LINK")" = "$SRC_REAL" ]; then
+    echo "build_fips: excluding self-referential bundle link ${SELF_LINK#"$SRC/"}"
+    RSYNC_EXCLUDES+=("--exclude=/$(basename "$SELF_LINK")")
+fi
+rsync -a --delete --delete-excluded --copy-links "${RSYNC_EXCLUDES[@]}" \
+    "$SRC/" "$BUILD/"
 chmod +x "$BUILD/configure" "$BUILD/fips-hash.sh" "$BUILD"/build-aux/* 2>/dev/null || true
 
 cd "$BUILD"
