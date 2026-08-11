@@ -99,10 +99,10 @@
 \toprule
 Organization & Lightrider Inc \\
 Product & Veloce: cryptographic search SDK + FIPS entropy generator \\
-Version & 0.1 (draft for review) \\
-Date & August 4, 2026 \\
+Version & 0.2 (implementation-aligned review) \\
+Date & August 10, 2026 \\
 Prepared for & Martin Guo, Quantum Applied Scientist \\
-Status & Awaiting stakeholder feedback \\
+Status & Linux reference implementation complete; Windows/macOS work planned \\
 \bottomrule
 \end{tabular}
 \vfill
@@ -110,13 +110,15 @@ Status & Awaiting stakeholder feedback \\
 \small\sffamily
 \textbf{Abstract.} Veloce V1 delivers two products in one SDK:
 \textbf{qSearch}, a high-performance cryptographic discovery tool (source, dependencies,
-certificates, network) that produces a Cryptography Bill of Materials (CBOM) on
-Windows~11 and Linux x86-64; and the \textbf{Veloce crypto core}, a locally deployed
+certificates, network) that produces a Cryptography Bill of Materials (CBOM); and the
+\textbf{Veloce crypto core}, a locally deployed
 entropy generator and PQC service built on the wolfCrypt FIPS~140-3 module
 (certificate \#4718) seeded exclusively by wolfSSL's ESV-certified wolfEntropy source,
 exposing ML-KEM, ML-DSA, and hybrid TLS~1.3 through a Python SDK. Cloud connectivity to
 the Lightrider EMS is optional, off by default, and includes a user-controllable cloud-entropy
 mix-in that never weakens the local FIPS entropy claim.
+The checked-in implementation is currently Linux x86-64; native Windows and macOS
+deliverables remain separate platform tracks in this same repository.
 \end{minipage}
 \vspace{2em}
 \end{titlepage}
@@ -139,19 +141,30 @@ API and deliverables, Section~\ref{sec:security} the security controls,
 Section~\ref{sec:gates} the acceptance tests, Section~\ref{sec:schedule} the build order
 with a component-to-repository map, and the appendices the exact build commands.
 
+\textbf{Implementation snapshot (2026-08-10).} The checked-in Linux implementation
+contains the C++ agent, pure-Python client, Rust CLI, native Rust qSearch source/system
+scanner, CBOM outputs, and 33-test gate battery. The current source scanner is a
+single-threaded recursive literal-pattern engine, not yet the parallel collector design
+described as the target below. Hybrid-TLS policy selection exists, but the TLS data plane,
+native Windows/macOS transports, native packages, dependency/PCAP collectors, and EMS
+network client are not implemented. This distinction is normative: target requirements
+must not be reported as delivered functionality.
+
 \subsection*{The two pillars}
 \begin{description}[style=nextline]
   \item[Pillar A: qSearch (cryptographic search).] A Rust-based discovery engine with
-  replaceable open-source collectors (CryptoScan, Zeek/Suricata, TShark+Npcap). It finds
-  RSA, DH, ECDH, ECDSA and other quantum-vulnerable usage in source code, dependencies,
-  certificates, and network traffic, and emits JSON, CSV, CycloneDX CBOM, and
+  a native literal-pattern and PEM-certificate collector today, with replaceable
+  dependency and network collectors planned. It finds RSA, DH, ECDH, ECDSA and other
+  quantum-vulnerable indicators in source code and certificates, and emits JSON, CSV,
+  CycloneDX CBOM, and
   OMB M-23-02 inventory fields. Lightrider owns the normalization, correlation,
   classification, CBOM generation, risk scoring, and reporting layers.
   \item[Pillar B: Entropy generator and FIPS crypto core.] A native C++17 agent embedding
   the wolfCrypt FIPS 140-3 validated module (CMVP cert \#4718) whose SP~800-90A Hash\_DRBG
   is seeded only by wolfSSL's ESV-certified wolfEntropy source (SP~800-90B health tests,
-  fail-closed). The agent provides ML-KEM-768 key establishment, ML-DSA signatures, and
-  hybrid TLS 1.3, consumed from a pure-Python SDK over an authenticated local IPC channel.
+  fail-closed). The agent provides ML-KEM-768 key establishment and ML-DSA signatures,
+  consumed from a pure-Python SDK over an authenticated local IPC channel. Hybrid TLS 1.3
+  policy selection is present; the sample handshake/data plane remains a G3 deliverable.
 \end{description}
 
 \subsection*{Technical stack}
@@ -181,9 +194,9 @@ PQC provider & ML-KEM / ML-DSA compiled \emph{beside} the FIPS boundary & The v5
 Agent & C++17 native service & The Windows instruction set specifies C++17; wolfCrypt is
   a C library, making C++ the lowest-friction FFI; all keys and FIPS state must reside in
   one local process. \\
-qSearch & Rust & Parsing-heavy, parallel scanning across untrusted inputs favors a
-  memory-safe compiled language; it links no wolfCrypt code, so the FFI constraint does
-  not apply. \\
+qSearch & Rust & The current standard-library-only implementation recursively scans
+  UTF-8 files with literal patterns and inspects PEM OIDs; the target engine adds a
+  compiled multi-pattern matcher and parallel walking. It links no wolfCrypt code. \\
 SDK client & Pure Python over local IPC & The guidance mandates a pure-Python IPC client
   that never loads the crypto library; private keys are represented only as opaque
   handles. \\
@@ -191,8 +204,9 @@ Cloud entropy & EMS-delivered packets as DRBG \emph{additional input}, default o
   SP~800-90A permits additional input with zero credited entropy, so cloud entropy can
   strengthen output without altering the FIPS/ESV claims; the source documents prohibit
   entropy leaving the device, and this design sends none. \\
-Platforms & Windows 11 x86-64; Linux x86-64 & Fixed by the V1 scope statement
-  (``Start with Windows and Linux only''); macOS deferred. \\
+Platforms & Linux x86-64 implemented; Windows 11 x86-64 next; macOS separate track &
+  Platform adapters and release artifacts remain isolated under one repository; no
+  unimplemented platform may be advertised as supported. \\
 Licensing & Lightrider commercial EULA wrapping the wolfSSL commercial license & The
   agreement (v.01-24) permits object-code redistribution of the Combined Program with
   notices retained (Section~\ref{sec:license}). \\
@@ -408,18 +422,20 @@ outside the FIPS boundary.
 \toprule
 \textbf{Adapter} & \textbf{Backend and method} & \textbf{Platform} \\
 \midrule
-Source-code scan & CryptoScan (\code{github.com/csnp/cryptoscan}) + native Rust
-  pattern engine for crypto API/algorithm usage & Win + Linux \\
-Dependency scan & Package/lockfile + SBOM (SCA) analysis; links findings to packages,
-  container images, digests & Win + Linux \\
-Certificate discovery & File-system, OS certificate stores, PKI endpoints; X.509 parsing
-  (key type, size, signature algorithm, expiry) & Win + Linux \\
-Network / PCAP & Zeek (or Suricata) for live traffic and PCAP: TLS versions, cipher
-  suites, key-exchange groups & Linux native \\
+Source-code scan & Implemented: recursive Rust walker, case-sensitive literal patterns,
+  selected extensions, 4 MiB file limit; skips common build/vendor directories & Linux;
+  portable source mode planned for Win/macOS \\
+Dependency scan & Planned: package/lockfile + SBOM (SCA) analysis; links findings to
+  packages, container images, and digests & Win + Linux + macOS \\
+Certificate discovery & Implemented: PEM blocks, SHA-256 fingerprints and selected key
+  OIDs; Linux certificate-store collector. Native Windows/macOS stores planned & Linux \\
+Network / PCAP & Planned: Zeek (or Suricata) for live traffic and PCAP: TLS versions,
+  cipher suites, key-exchange groups & Linux native \\
 Windows capture & TShark/Wireshark + Npcap producing PCAP; analysis by Zeek on a Linux
   sensor, WSL, or analysis server (Zeek on Windows is experimental) & Windows \\
-Endpoint / config & OS and application configuration review (TLS configs, SSH configs,
-  crypto policy files) & Win + Linux \\
+Endpoint / config & Implemented on Linux: \code{ldconfig}, library paths,
+  \code{/proc/crypto}, \code{/proc/*/maps}, SSH, certificate stores, and policy files;
+  Windows/macOS collectors planned & Linux \\
 \bottomrule
 \end{tabularx}
 \end{small}
@@ -463,12 +479,55 @@ Outputs: \textbf{JSON} (canonical), \textbf{CSV}, \textbf{CycloneDX CBOM},
 \textbf{M-23-02 inventory fields}, \textbf{executive summary}, and \textbf{SDK runtime
 validation records} (the Veloce agent's own CBOM self-report merges into the same store).
 
+\subsection{Coverage assurance and outlier names}
+No finite keyword list can guarantee discovery of every crypto wrapper, alias, generated
+binding, renamed module, or proprietary API. qSearch therefore treats keyword matches as
+evidence, not proof, and uses a layered coverage model:
+\begin{enumerate}
+  \item Curated rules include canonical standards, historical names (for example Kyber
+        and Dilithium), vendor APIs, language bindings, protocol groups, OIDs, imports,
+        package names, and configuration keys. Rules move to a versioned external
+        JSON/TOML file with rule identifier, aliases, classification, risk, source, and
+        regression fixture.
+  \item Structural collectors examine certificates, dependency manifests, linked/loaded
+        libraries, symbols, processes, and protocol observations. These catch modules
+        whose application-facing name does not contain a known algorithm keyword.
+  \item Every rule has positive, negative, alias, comment/test, and boundary fixtures.
+        Controlled corpora measure precision, recall, false positives, and explicit blind
+        spots. Unknown providers are reported as context for analyst review, never silently
+        classified as safe.
+  \item Customer/vendor dictionaries may add organization-specific wrapper and product
+        names without rebuilding qSearch. Signed rule-pack versions are recorded in every
+        run log and CBOM record.
+\end{enumerate}
+
+\subsection{Optional AI triage}
+AI is an enrichment stage after deterministic collection; it is never the sole source of
+a CBOM fact. qSearch batches findings and, only with explicit tenant opt-in, submits the
+minimum necessary context (rule ID, path token, matched line and a bounded surrounding
+window) to a Lightrider AI gateway. The gateway may classify active code versus comments,
+tests, examples, or wrappers; suggest aliases; explain risk; and propose remediation. The
+original match, file/line evidence, model/version, prompt-policy version, confidence, and
+human disposition remain in the audit record.
+
+The model-provider credential is stored once in Lightrider's server-side secret manager
+and is never shipped in qSearch, a wheel, a CLI flag, a repository, or a customer report.
+Customers authenticate to Lightrider with a scoped tenant credential; the gateway attaches
+the provider credential and applies quotas, redaction, retention, and audit policy. Calls
+are batched per scan/chunk, not made once per keyword. A bring-your-own-key mode and a
+fully local/offline model are optional deployment profiles. AI failure, denial, or timeout
+must not block deterministic scanning or alter the zero-network guarantee when EMS/AI is
+disabled.
+
 \subsection{Performance approach}
-Rust engine; parallel directory walking and memory-mapped file scanning; compiled
-pattern automata (Aho--Corasick / regex-set) for algorithm signatures; incremental
-re-scan keyed on file hashes so continuous CBOM updates stay cheap; scan results streamed
-to the store (bounded memory on large estates). Benchmarks and false-positive/blind-spot
-reporting are release gates (Section~\ref{sec:gates}).
+Current implementation: a single-threaded depth-first \code{read\_dir} walk loads each
+readable file up to 4 MiB as UTF-8, then applies every literal pattern to every line. It
+does not use an index, AST, memory mapping, Aho--Corasick, or incremental hashes.
+
+Target upgrade: parallel ignore-aware walking; one compiled Aho--Corasick/regex-set pass;
+bounded streaming; and incremental re-scan keyed on file hashes. AI runs only on the much
+smaller finding set. Benchmarks and false-positive/blind-spot reporting are release gates
+(Section~\ref{sec:gates}).
 
 % =====================================================================
 \section{Pillar B: Entropy Generator and FIPS Crypto Core}\label{sec:core}
@@ -497,11 +556,15 @@ with PQC and TLS services above it. All failure modes are fail-closed.
 \end{tikzpicture}
 \end{center}
 
-\textbf{Wiring.} The module itself makes no entropy claim; the agent installs the entropy
-source with \code{wc\_SetSeed\_Cb()} immediately after \code{wolfCrypt\_SetCb\_fips()} at
-startup, backed by \code{wc\_Entropy\_Get()}. Each instantiate/reseed requests 64 bytes at
-256-bit strength. The build uses \code{-{}-enable-wolfEntropy=nofallback} so the source can
-\emph{never} silently fall back to \code{/dev/urandom} in FIPS mode.
+\textbf{Wiring.} The module itself makes no entropy claim. After loading the module and
+checking \code{wolfCrypt\_GetStatus\_fips()}, the implemented agent runs the wolfEntropy
+on-demand health test, registers \code{wc\_GenerateSeed} with
+\code{wc\_SetSeed\_Cb()}, and instantiates the FIPS DRBG with \code{wc\_InitRng()}.
+The build uses \code{-{}-enable-wolfEntropy=nofallback}, so initialization or generation
+fails closed rather than silently falling back to \code{/dev/urandom}. The agent exposes
+\code{FipsCore::randomBytes()} as a callback to the separate PQC provider: ML-KEM keygen
+requests 64 bytes; ML-KEM encapsulation, ML-DSA keygen, and hedged ML-DSA signing request
+32 bytes each. Applications never supply or retrieve raw entropy.
 
 \textbf{Fail-closed policy.} If entropy initialization, a health test (RCT/APT), or a
 reseed fails, the agent transitions to a degraded state: all key generation, signing,
@@ -539,16 +602,24 @@ API change.
         \code{wolfCrypt\_GetStatus\_fips()}.
   \item Record for every build: DLL/so hash, source version, build settings, compiler,
         FIPS certificate, ESV certificate, operating environment (feeds the CBOM).
-  \item Certificate \#4718 lists \textbf{Windows 11 Pro x86-64} (Intel Core i7-1255U)
-        and Windows Server 2022 among its tested operational environments, alongside
-        RHEL, Ubuntu, and Debian x86-64; wolfSSL support confirms this source package
-        also builds the Windows module via the \code{IDE/WIN10} Visual Studio solution.
-        The CMVP entry carries the caveat ``no assurance of the minimum strength of
-        generated SSPs''; entropy assurance therefore comes solely from the ESV
-        source. \dep{Confirm with wolfSSL: (a) the approved Windows \emph{DLL} build
-        configuration (\code{IDE/WIN10} ships static-library settings, while the SDK
-        requires dynamic loading); (b) the \code{user\_settings.h} variant matching
-        module v5.2.1.}
+  \item The licensed source package does include Windows FIPS build material:
+        \code{IDE/WIN10/wolfssl-fips.sln}, \code{wolfssl-fips.vcxproj}, and
+        \code{user\_settings.h}. Its README says the supplied library is currently built
+        statically and documents special in-core integrity linker settings.
+  \item As checked on 2026-08-10, wolfSSL lists \textbf{Windows 10 Enterprise on Intel
+        Core i5-1345U} (with and without PAA) and \textbf{Windows 11 Pro on Intel Core
+        i7-1260P @ 2.10 GHz} as \emph{pending operational environments}. NIST's CAVP
+        record A4308 already enumerates these algorithm-test OEs, but the current CMVP
+        certificate \#4718 security policy does not list them in its approved tested-OE
+        table. CAVP algorithm testing and a pending OE must not be represented as current
+        CMVP module/OE approval. The earlier i7-1255U statement referred to a separate
+        future module and was incorrect for this claim.
+  \item The CMVP entry carries the caveat ``no assurance of the minimum strength of
+        generated SSPs''; entropy assurance therefore depends on the separately assessed
+        entropy source. \dep{Obtain wolfSSL confirmation when the two Windows OEs are
+        added to the published \#4718 security policy, plus the approved dynamic-library
+        configuration and exact v5.2.1 \code{user\_settings.h}. Until then Windows is a
+        development target, not a Veloce validated deployment claim.}
 \end{itemize}
 
 \subsection{PQC provider outside the FIPS boundary}\label{sec:pqc-boundary}
@@ -661,7 +732,8 @@ Discovery & \code{list\_policy\_profiles()}, \code{list\_crypto\_providers()},
   \code{list\_entropy\_providers()}, \code{validation\_status()} \\
 ML-KEM & \code{mlkem\_generate\_keypair()}, \code{mlkem\_encapsulate()},
   \code{mlkem\_decapsulate()} \\
-ML-DSA & \code{mldsa\_sign()}, \code{mldsa\_verify()} \\
+ML-DSA & \code{mldsa\_generate\_keypair()}, \code{mldsa\_sign()},
+  \code{mldsa\_verify()} \\
 TLS / FIPS & \code{configure\_hybrid\_tls()}, \code{run\_fips\_self\_tests()},
   \code{approved\_mode\_status()} \\
 Reporting & \code{export\_cbom()}, \code{generate\_diagnostic\_bundle()} \\
@@ -670,8 +742,11 @@ Reporting & \code{export\_cbom()}, \code{generate\_diagnostic\_bundle()} \\
 \end{small}
 
 Private keys never cross the IPC channel: key APIs return a public key plus an opaque
-\code{private\_key\_handle}. V1 adds one extension pair for the approved scope change:
-\code{set\_entropy\_mixin()} / mix-in status inside \code{list\_entropy\_providers()}.
+\code{private\_key\_handle}. The implementation adds
+\code{mldsa\_generate\_keypair()} (required to exercise signing) and the housekeeping
+operation \code{release\_key()} for agent-side zeroization. V1 also adds
+\code{set\_entropy\_mixin()} / mix-in status inside
+\code{list\_entropy\_providers()}.
 
 \subsection{Deliverables checklist}
 Python wheel (\code{veloce\_pqc-<ver>-py3-none-any.whl}); native agent; wolfCrypt shared
@@ -683,6 +758,42 @@ client/server; test vectors; performance report; known-limitations statement; re
 evaluation package; \textbf{Lightrider EULA} and \textbf{third-party notices file}
 (wolfSSL attribution + collector licenses; see Section~\ref{sec:license}); branding
 assets (logo artwork + ASCII banner, Section~\ref{sec:branding}).
+
+\subsection{Platform-separated development and release layout}
+All operating systems remain in one repository and share protocol, algorithm, report,
+and conformance-test definitions. OS-specific code is isolated behind transport, library
+loader, service, system-discovery, and packaging interfaces; platform conditionals must
+not spread through cryptographic policy code. The target source layout is:
+
+\begin{quote}
+\code{platform/linux/}\quad Unix socket/peer credentials, \code{dlopen}, systemd,
+Linux collectors\\
+\code{platform/windows/}\quad named pipe/ACL, \code{LoadLibraryExW}, Windows service,
+Windows collectors\\
+\code{platform/macos/}\quad local IPC/peer authorization, \code{dylib}, launchd,
+Keychain/macOS collectors\\
+\code{core/}, \code{ipc/}, \code{python/}, \code{qsearch/}\quad shared behavior and
+schemas\\
+\code{installer/\{linux,windows,macos\}/}\quad platform package inputs
+\end{quote}
+
+The existing Linux implementation remains in \code{agent/}, \code{cli/}, and
+\code{qsearch/src/system.rs} until the adapters are extracted; empty or planned platform
+directories do not imply support. Releases are assembled into explicit targets, never a
+mixed archive:
+
+\begin{quote}
+\code{release/<version>/linux/x86\_64/}\quad tar/deb/rpm, ELF binaries and \code{.so}s\\
+\code{release/<version>/windows/x86\_64/}\quad signed MSI, PE binaries and DLLs\\
+\code{release/<version>/macos/\{x86\_64,arm64\}/}\quad signed/notarized package and
+\code{.dylib}s\\
+\code{release/<version>/common/}\quad protocol/docs plus only genuinely portable files
+\end{quote}
+
+Each target carries its own manifest, SHA-256 checksums, SBOM/CBOM, tested OS/CPU,
+validation claims, known limitations, and gate report. The current
+\code{scripts/make\_release.sh} produces Linux x86-64 only; Windows and macOS release
+folders must not be emitted until their gates pass.
 
 \subsection{Startup branding}\label{sec:branding}
 
@@ -914,6 +1025,8 @@ exit gate.
 \code{installer/} & \S\ref{sec:api} packaging; \S\ref{sec:security} secure defaults & G4 \\
 \code{assets/branding/} & \S\ref{sec:branding} logo + banner assets & G4 \\
 \code{docs/} & \S\ref{sec:api} documentation deliverables & G4 \\
+\code{docs/two-server-manual-test.md} & Manual GitHub-synchronized two-host
+  ML-DSA/ML-KEM interoperability procedure & G3 \\
 \bottomrule
 \end{tabularx}
 \end{small}
@@ -931,9 +1044,11 @@ macOS; multi-source entropy pooling; qSearch remediation orchestration.
 \toprule
 \textbf{Risk / item} & \textbf{Prob.} & \textbf{Impact} & \textbf{Mitigation} \\
 \midrule
-Windows FIPS \emph{DLL} configuration + ESV OE applicability unconfirmed by wolfSSL
-  (cert \#4718 itself already lists Windows 11 Pro x86-64 as a tested OE) & M & M &
-  Engage at S0; Linux track proceeds independently; Windows gates depend only on S1+. \\
+Windows FIPS dynamic-library configuration + ESV OE applicability unconfirmed; the
+  Windows 10/i5-1345U and Windows 11/i7-1260P environments are pending and not yet in
+  the current \#4718 security-policy tested-OE table & M & H & Engage wolfSSL at S0;
+  treat CAVP records as algorithm evidence only; make no Windows validated-deployment
+  claim until the CMVP OE update and exact build guidance are published. \\
 PQC outside FIPS boundary until v7 & certain & M & Honest per-item status reporting
   (already the documented design); ACVTS algorithm evidence; v7 migration path built into
   the provider interface. \\
@@ -987,10 +1102,30 @@ symbol namespace so the two builds can never be confused at load time.
 
 \subsection*{Windows}
 Use the wolfSSL-provided \code{IDE/WIN10} FIPS solution (\code{wolfssl-fips.sln}),
-Platform \code{x64}, per-wolfSSL-approved configuration only; wolfSSL support confirms
-this source package also builds the Windows module, and cert \#4718 lists Windows 11 Pro
-x86-64 as a tested OE. \dep{Approved DLL configuration and \code{user\_settings.h}
-variant to be confirmed.} Then follow the same hash-verify-record flow.
+Platform \code{x64}, per-wolfSSL-approved configuration only. Local inspection confirms
+the solution, project, and \code{user\_settings.h} exist. The included README currently
+says to build a static library and documents integrity-sensitive linker settings; Veloce's
+dynamic-loading requirement therefore remains unresolved. wolfSSL lists Windows 10
+Enterprise/i5-1345U (with and without PAA) and Windows 11 Pro/i7-1260P as pending OEs;
+the A4308 CAVP record is not by itself CMVP module/OE approval.
+\dep{Obtain the approved DLL configuration, exact user guide/settings, and published
+\#4718 OE update before enabling the Windows FIPS claim.} Then implement the named-pipe
+transport, restricted DLL loading, Windows service, Windows collectors, MSI, and the same
+hash-verify-record flow behind platform adapters.
+
+\section{Manual Two-Host Interoperability Test}\label{app:twohost}
+
+The executable step-by-step procedure is maintained in
+\code{docs/two-server-manual-test.md}. It assigns
+\code{168.231.75.64} (\code{srv811871.hstgr.cloud}) as signer/ML-KEM sender and
+\code{93.127.215.63} (\code{srv862034.hstgr.cloud}) as verifier/ML-KEM recipient.
+Both hosts clone the same commit from the private GitHub repository using independent
+read-only deploy keys; the licensed wolfSSL bundle is provisioned separately and must
+never enter GitHub. Each host builds, gates, and runs its own local agent. Public keys,
+ML-DSA signature bundles, and ML-KEM ciphertext move through SSH/SCP; private handles and
+shared secrets never leave their owning host. The test compares shared-secret SHA-256
+fingerprints and records commit, OS/CPU, validation, and gate evidence. It does not claim
+to implement authenticated payload encryption or hybrid TLS.
 
 \section{CBOM Field Mapping (SDK $\rightarrow$ workbook)}\label{app:cbom}
 
@@ -1033,6 +1168,13 @@ timestamps.
   \item NIST FIPS 203 (ML-KEM), FIPS 204 (ML-DSA); FIPS 140-3; SP 800-90A/B.
   \item NIST CMVP validated-modules search (wolfSSL):\\
         \url{https://csrc.nist.gov/projects/cryptographic-module-validation-program}.
+  \item NIST CMVP certificate \#4718 and security policy (checked 2026-08-10):\\
+        \url{https://csrc.nist.gov/projects/cryptographic-module-validation-program/certificate/4718}.
+  \item NIST CAVP wolfCrypt product/A4308 records, including the Windows algorithm-test
+        environments; CAVP evidence is not CMVP OE approval:\\
+        \url{https://csrc.nist.gov/projects/cryptographic-algorithm-validation-program/details?product=16876}.
+  \item wolfSSL FIPS status page, ``Pending Operating Environments currently in testing''
+        (checked 2026-08-10): \url{https://www.wolfssl.com/license/fips/}.
   \item CryptoScan: \url{https://github.com/csnp/cryptoscan}; Zeek packet analysis:
         \url{https://docs.zeek.org}.
   \item wolfSSL 5.9.2 release (Jun 23, 2026), commercial FIPS bundle

@@ -19,3 +19,11 @@ wolfSSL TLS build with ML-KEM enabled (autotools build of the same release;
 the V1 PQC provider library is wolfCrypt-only). The samples land with the S3
 gate; the policy control plane (configure_hybrid_tls) is functional now and
 is exercised by the gate battery.
+
+## two-server
+
+`two-server/two_party_demo.py` provides a file-exchange demonstration for
+ML-DSA signing/verification and ML-KEM encapsulation/decapsulation using one
+local Veloce agent on each host. Follow `docs/two-server-manual-test.md` for
+the two Hostinger-server procedure. It demonstrates the PQC primitives; it is
+not a complete encrypted transport protocol.

@@ -15,6 +15,15 @@ Veloce V1 delivers two products in one SDK:
 The authoritative implementation spec is
 [`plan/veloce-engineering-guide.pdf`](plan/veloce-engineering-guide.pdf).
 
+## Availability
+
+The current Veloce release is publicly downloadable and free to use under
+the included Lightrider Inc license; no client subscription is required for
+this archived version. Future managed services, enterprise features,
+support, updates, or client releases may require a paid subscription.
+"Publicly downloadable" does not mean OSI open source and does not override
+the terms in [`LICENSE`](LICENSE).
+
 ## Build and test (Linux x86-64)
 
 ```
@@ -76,6 +85,9 @@ Merge the agent's runtime validation records into a scan with
 | `docs/` | quickstart, status, Zenodo release guide |
 | `assets/branding/` | banner and logo assets (spec 7.3) |
 
+The manual two-host ML-DSA/ML-KEM interoperability procedure is in
+[`docs/two-server-manual-test.md`](docs/two-server-manual-test.md).
+
 ## Releasing
 
 ```
@@ -83,6 +95,7 @@ bash scripts/make_release.sh    # object-code archive + wheel + checksums
 ```
 
 Publication steps (DOI-versioned, all platforms): docs/zenodo-release-guide.md.
+Zenodo reads [`.zenodo.json`](.zenodo.json) when a GitHub Release is archived.
 
 ## License
 

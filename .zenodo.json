@@ -1,0 +1,25 @@
+{
+  "title": "Veloce: Post-Quantum Cryptography SDK",
+  "description": "Veloce combines cryptographic discovery and CBOM reporting with a local post-quantum cryptography agent, Python SDK, and command-line interface. The current release is publicly downloadable and free to use under the Lightrider Inc license included with the release; no client subscription is required for this archived version. Future managed services, enterprise features, support, updates, or client releases may require a paid subscription. Public access does not make Veloce OSI open source or override the included license. Built with wolfCrypt (FIPS 140-3 certificate #4718); wolfSSL components are distributed as object code only under commercial license.",
+  "creators": [
+    {
+      "name": "Lightrider Inc"
+    }
+  ],
+  "access_right": "open",
+  "license": "other-open",
+  "upload_type": "software",
+  "language": "eng",
+  "keywords": [
+    "post-quantum cryptography",
+    "PQC",
+    "ML-KEM",
+    "ML-DSA",
+    "FIPS 140-3",
+    "CBOM",
+    "CycloneDX",
+    "cryptographic discovery",
+    "quantum-vulnerable discovery",
+    "wolfSSL"
+  ]
+}
