@@ -74,7 +74,7 @@ ssh -T git@github.com
 Do not put GitHub tokens, private SSH keys, the licensed wolfSSL bundle, or
 generated private-state files in the repository.
 
-## 3. Install prerequisites and clone the same revision
+## 3. Install prerequisites and clone Veloce
 
 Run on both hosts:
 
@@ -86,11 +86,16 @@ sudo apt-get install -y git build-essential autoconf automake libtool \
 mkdir -p ~/src
 cd ~/src
 git clone git@github.com:lightriderinc/Veloce.git
-cd Veloce
+cd "$HOME/src/Veloce"
 git switch main
 git pull --ff-only
+pwd
 git rev-parse HEAD
 ```
+
+`pwd` must print the current user's home path followed by `/src/Veloce`.
+Never continue after a failed `cd`: subsequent relative `build/bin/...`
+commands would run from the wrong directory.
 
 The two `git rev-parse HEAD` values must be identical. For later updates, use
 `git status --short`, then `git pull --ff-only`; do not discard local changes.
@@ -115,87 +120,57 @@ The commercial wolfSSL source is intentionally ignored by Git. Securely copy
 the authorized bundle from the Lightrider-controlled source to each host over
 SSH or an approved private artifact channel. Never upload it to GitHub.
 
+**A Git clone alone cannot run Veloce.** The clone intentionally contains
+neither the licensed wolfSSL source nor prebuilt files under `build/`. Each
+server needs its own authorized bundle before `scripts/run_gates.sh` can build
+the FIPS library, PQC provider, agent, and CLI.
+
 Keep the original authorized archive long enough to record its SHA-256, then
-unpack it. On each host, set `veloce_bundle` to the actual extracted directory.
-The first example is the normal layout; the commented example shows a bundle
-already provisioned elsewhere on the same host:
+unpack the directory at this standard private location on each server:
 
-```bash
-(
-set -euo pipefail
-cd ~/src/Veloce
-veloce_bundle="$PWD/wolfssl-5.9.2-commercial-fips-linuxv5.2.1"
-# veloce_bundle="/home/HOSTINGER_USER/Veloce/wolfssl-5.9.2-commercial-fips-linuxv5.2.1"
-
-test -x "$veloce_bundle/configure"
-test -f "$veloce_bundle/IDE/WIN10/wolfssl-fips.sln"
-mkdir -p vendor
-test ! -e vendor/wolfssl
-test ! -L vendor/wolfssl
-ln -s "$veloce_bundle" vendor/wolfssl
-test -x vendor/wolfssl/configure
-test -f vendor/wolfssl/IDE/WIN10/wolfssl-fips.sln
-)
+```text
+~/veloce-private/wolfssl-5.9.2-commercial-fips-linuxv5.2.1
 ```
 
-If either absence check fails, inspect the existing path with
-`ls -l vendor/wolfssl`; do not overwrite it until its target is confirmed.
+Then run from the clone:
+
+```bash
+cd "$HOME/src/Veloce"
+bash scripts/setup_bundle.sh
+```
+
+If the authorized bundle is already unpacked elsewhere, pass its directory:
+
+```bash
+bash scripts/setup_bundle.sh /absolute/path/wolfssl-5.9.2-commercial-fips-linuxv5.2.1
+```
+
+The script also searches the current user's home directory, safely repairs a
+broken `vendor/wolfssl` symlink, and succeeds with `setup_bundle: ready (...)`.
+If the licensed directory is absent, it prints the exact standard location and
+stops without changing the SSH login shell.
+
 Record and compare the original source-archive SHA-256 on both hosts before
 building. `vendor/` is Git-ignored and must remain untracked.
 
-## 5. Build, test, and start one local agent per host
+## 5. Build and fire up Veloce on each server
 
-First, run the release gates on both hosts:
-
-```bash
-cd ~/src/Veloce
-df -h /
-test -x vendor/wolfssl/configure
-bash scripts/run_gates.sh
-```
-
-Stop on that host unless the final line is exactly `ALL GATES GREEN`. Do not
-run the configuration, agent, status, or self-test commands after a failed
-gate: the required libraries and binaries may not exist.
-
-After the gates pass, run this startup block on both hosts. The subshell exits
-on the first error, creates the private state directory before redirecting the
-log, records the correct PID, and confirms that the process survived startup:
+After `setup_bundle: ready`, fire up Veloce with one command on each server:
 
 ```bash
-(
-set -euo pipefail
-cd ~/src/Veloce
-umask 077
-
-install -d -m 700 "$HOME/.veloce"
-test -x build/bin/veloce-agent
-test -x build/bin/veloce
-python3 scripts/gen_config.py
-
-if [ -s "$HOME/.veloce/agent.pid" ] \
-        && kill -0 "$(cat "$HOME/.veloce/agent.pid")" 2>/dev/null; then
-    echo "Veloce agent is already running" >&2
-    exit 1
-fi
-
-nohup build/bin/veloce-agent \
-    --config "$HOME/.veloce/agent.json" --quiet \
-    >"$HOME/.veloce/agent.log" 2>&1 &
-agent_pid=$!
-printf '%s\n' "$agent_pid" >"$HOME/.veloce/agent.pid"
-sleep 2
-
-if ! kill -0 "$agent_pid" 2>/dev/null; then
-    echo "Veloce agent exited during startup" >&2
-    tail -n 100 "$HOME/.veloce/agent.log" >&2
-    exit 1
-fi
-
-build/bin/veloce --json status
-build/bin/veloce --json self-test
-)
+cd "$HOME/src/Veloce"
+bash scripts/fire_up.sh
 ```
+
+`fire_up.sh` checks free space and the bundle, runs every release gate,
+regenerates `~/.veloce/agent.json` for this exact clone, removes only stale
+PID/socket files, starts the agent, and runs status plus self-test. It never
+continues from a failed gate.
+
+Expected results: status reports `"state":"ok"`, `"approved_mode":true`,
+and healthy entropy; self-test reports passing CAST, entropy, and PQC tests.
+The PID is stored in `~/.veloce/agent.pid` and diagnostic output in
+`~/.veloce/agent.log`.
 
 Do not open a firewall port for Veloce. The agent communicates through
 `~/.veloce/agent.sock` on its own host. Keep the shell setting below for the
@@ -208,14 +183,20 @@ export PYTHONPATH="$PWD/python"
 
 ### Setup failure guide
 
+- `cd: .../src/Veloce: No such file or directory`: the clone is missing or is
+  at a different path. Locate it and do not continue with relative commands.
 - `licensed bundle not found at vendor/wolfssl`: the bundle is absent, the
-  symlink is missing/broken, or its target lacks an executable `configure`.
+  symlink is missing/broken, or its target lacks `configure`.
 - `FIPS library not staged`: gate G0 did not complete; fix its first error and
   rerun the gates instead of rerunning `gen_config.py` alone.
 - `~/.veloce/agent.log: No such file or directory`: the earlier configuration
   step failed before creating `~/.veloce`; do not attempt agent startup.
 - `build/bin/veloce: No such file or directory`: the build stopped before the
   Rust CLI was staged, or `cargo` was unavailable.
+- `cannot connect ... agent.sock` with `No such file or directory`: no agent
+  created the socket; check the PID and `tail -n 100 ~/.veloce/agent.log`.
+- `cannot connect ... agent.sock` with `Connection refused`: the socket is
+  stale and its agent is dead; rerun the guarded startup block.
 - `No space left on device`: stop all build/start commands and recover disk
   space first; partial build artifacts are not evidence of a passed gate.
 
