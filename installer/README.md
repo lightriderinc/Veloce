@@ -22,6 +22,20 @@ certificate (spec 7.3). Build the staged tree with
 `bash scripts/make_release.sh` from the repository root, then wrap it with
 `fpm` or native `dpkg-deb`/`rpmbuild` tooling.
 
+The same release command produces a self-contained client tarball for hosts
+that do not use deb/rpm. It includes both cryptographic libraries as object
+code and does not require the licensed wolfSSL source bundle on the client:
+
+```bash
+tar -xzf veloce-1.0.0-linux-x86_64.tar.gz
+cd veloce-1.0.0-linux-x86_64
+bin/veloce-fire-up
+```
+
+The launcher generates paths for the extracted location, starts the agent,
+and runs status and self-test checks. See `docs/client-quickstart.md` in the
+repository or `docs/quickstart.md` inside the client archive.
+
 ## Windows (MSI)
 
 Spec references: named pipe `\\.\pipe\LightRider.PQC.v1` with explicit ACL,

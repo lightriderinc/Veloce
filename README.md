@@ -97,6 +97,28 @@ bash scripts/make_release.sh    # object-code archive + wheel + checksums
 Publication steps (DOI-versioned, all platforms): docs/zenodo-release-guide.md.
 Zenodo reads [`.zenodo.json`](.zenodo.json) when a GitHub Release is archived.
 
+The Linux client archive is self-contained for runtime: it includes the
+Veloce agent and CLI, the versioned wolfCrypt FIPS shared library as object
+code, the PQC provider shared library, build records, and `bin/veloce-fire-up`.
+Clients do not receive the licensed wolfSSL source, vendor/build source trees,
+Git history, or internal engineering plan. After extracting the archive:
+
+```bash
+bin/veloce-fire-up
+```
+
+The optional pure-Python SDK wheel and demonstration are also included.
+Python modules are inherently inspectable; omit the wheel and Python example
+from an SDK-free runtime delivery if the client does not need the Python
+API.
+
+```bash
+VELOCE_INCLUDE_PYTHON_SDK=0 bash scripts/make_release.sh
+```
+
+`bin/veloce-fire-up` remains a small readable bootstrap script; it contains
+configuration/startup glue, not the Veloce or wolfSSL implementation.
+
 ## License
 
 Veloce ships under the Lightrider Inc commercial license (LICENSE),

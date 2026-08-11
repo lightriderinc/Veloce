@@ -51,6 +51,14 @@ committed, while `.gitattributes` applies `export-ignore` to tracked internal
 plans and generated findings when `git archive` or GitHub builds a source
 archive.
 
+The Linux binary archive is the client delivery: it contains the Veloce
+executables, the versioned wolfCrypt FIPS shared object, the PQC shared
+object, their build records, and a one-command launcher. It contains no
+wolfSSL source and no Veloce native implementation source. The optional
+pure-Python SDK wheel and Python example are inspectable; omit both from a
+SDK-free runtime delivery if the Python API is not required by
+building with `VELOCE_INCLUDE_PYTHON_SDK=0`.
+
 ## Step 0: publication approval and preflight
 
 Before creating a public record:
@@ -178,7 +186,7 @@ concept DOI stays constant; each version gets its own DOI.
 
 | Platform | Artifact | Install |
 |---|---|---|
-| Linux x86-64 | veloce-1.0.0-linux-x86_64.tar.gz | untar, run bin/veloce-gen-config, start bin/veloce-agent, `pip install` the wheel |
+| Linux x86-64 | veloce-1.0.0-linux-x86_64.tar.gz | untar, enter its directory, run `bin/veloce-fire-up`; optionally `pip install` the included wheel |
 | Windows 11 x86-64 | veloce-1.0.0-windows-x86_64.msi (pending vendor DLL-config items) | MSI installs VelocePqcAgent service + CLI; then `pip install veloce_pqc-*.whl` |
 | Any (SDK only) | veloce_pqc-1.0.0-py3-none-any.whl | `pip install`; requires a reachable agent |
 

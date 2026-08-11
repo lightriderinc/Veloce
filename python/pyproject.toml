@@ -8,7 +8,7 @@ version = "1.0.0"
 description = "Veloce PQC SDK: pure-Python client for the Lightrider Veloce agent (wolfCrypt FIPS 140-3 cert #4718, ML-KEM, ML-DSA, hybrid TLS 1.3)"
 readme = "README.md"
 requires-python = ">=3.8"
-license = { file = "LICENSE" }
+license = { text = "Lightrider Inc Commercial License" }
 authors = [{ name = "Lightrider Inc" }]
 classifiers = [
     "Programming Language :: Python :: 3",
