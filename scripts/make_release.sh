@@ -38,6 +38,7 @@ cp build/lib/pqc/build-record.json "$STAGE/lib/veloce-pqc.build-record.json"
 
 cp LICENSE THIRD_PARTY_NOTICES.md "$STAGE/"
 cp docs/client-quickstart.md "$STAGE/docs/quickstart.md"
+cp docs/two-server-manual-test.md "$STAGE/docs/"
 cp docs/STATUS.md ipc/protocol.md "$STAGE/docs/"
 cp installer/linux/veloce-agent.service installer/README.md "$STAGE/installer/"
 cp installer/linux/veloce-fire-up "$STAGE/bin/veloce-fire-up"
@@ -58,8 +59,9 @@ if [ "$INCLUDE_PYTHON_SDK" = 1 ]; then
         echo "make_release: expected one Python wheel" >&2; exit 1; }
     WHEEL="${wheel_files[0]}"
     cp "$WHEEL" "$STAGE/"
-    mkdir -p "$STAGE/examples"
+    mkdir -p "$STAGE/examples/two-server"
     cp examples/python-demo.py "$STAGE/examples/"
+    cp examples/two-server/two_party_demo.py "$STAGE/examples/two-server/"
 fi
 
 cat > "$STAGE/README.txt" <<EOF
@@ -118,7 +120,8 @@ find "$STAGE" -type d -exec chmod 0755 {} +
 find "$STAGE" -type f -exec chmod 0644 {} +
 chmod 0755 "$STAGE/bin/veloce-agent" "$STAGE/bin/veloce-fire-up"
 for executable in "$STAGE/bin/veloce" "$STAGE/bin/qsearch" \
-        "$STAGE/examples/python-demo.py"; do
+        "$STAGE/examples/python-demo.py" \
+        "$STAGE/examples/two-server/two_party_demo.py"; do
     [ ! -e "$executable" ] || chmod 0755 "$executable"
 done
 
