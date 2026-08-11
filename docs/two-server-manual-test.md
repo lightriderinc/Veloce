@@ -1,323 +1,291 @@
-# Veloce two-server manual test
+# Veloce two-server release test
 
-This procedure tests the current Linux Veloce client bundle on two Hostinger
-servers. Build Veloce once on a Lightrider-controlled release machine, then
-send the same object-code archive to both servers. The client servers do not
-need a GitHub checkout, compiler, or licensed wolfSSL source bundle.
+This procedure assumes you have exactly two Linux x86-64 servers and a Veloce
+binary release. Upload the same release archive and `SHA256SUMS` file to both
+servers, start Veloce locally on each server, and test ML-DSA and ML-KEM between
+them.
 
-The current release is publicly downloadable and free to use under the
-included Lightrider commercial license. It is not OSI open source. Future
-managed services, support, updates, or client releases may require a paid
-subscription.
+Do not clone the Veloce repository on either server. A repository checkout or
+a GitHub-generated source archive does not contain the licensed runtime
+libraries. Use the versioned Linux binary release named like
+`veloce-1.0.0-linux-x86_64.tar.gz`.
+
+The release must include the Python SDK. An archive built with
+`VELOCE_INCLUDE_PYTHON_SDK=0` cannot run this test.
 
 | Role | Host | Address |
 |---|---|---|
 | A: signer / ML-KEM sender | `srv811871.hstgr.cloud` | `168.231.75.64` |
 | B: verifier / ML-KEM recipient | `srv862034.hstgr.cloud` | `93.127.215.63` |
 
-The Veloce agent remains local to each host. Do not expose its Unix socket to
-the network. These examples establish a shared secret and verify a signature;
-they are not a complete application encryption protocol.
+The Veloce agent remains local to each server. Do not expose its Unix socket or
+open a network port for it. Only the JSON test files move between the servers.
 
-## 1. Configure workstation SSH aliases
+## 1. Upload the release to both servers
 
-On the administrator workstation, add entries like these to `~/.ssh/config`.
-Replace `HOSTINGER_USER` and the identity-file paths with the actual values.
-
-```text
-Host lr168
-    HostName 168.231.75.64
-    User HOSTINGER_USER
-    IdentityFile ~/.ssh/hostinger_168
-    IdentitiesOnly yes
-
-Host lr93
-    HostName 93.127.215.63
-    User HOSTINGER_USER
-    IdentityFile ~/.ssh/hostinger_93
-    IdentitiesOnly yes
-```
-
-Confirm access without changing either server:
+On the computer holding the downloaded release, set the SSH user and the path
+to the two release files:
 
 ```bash
-ssh lr168 'hostname; uname -a'
-ssh lr93 'hostname; uname -a'
+export SERVER_USER="YOUR_SSH_USER"
+export RELEASE_DIR="$HOME/Downloads/veloce-1.0.0"
+export RELEASE_ARCHIVE="veloce-1.0.0-linux-x86_64.tar.gz"
+
+ssh "$SERVER_USER@168.231.75.64" \
+    'install -d -m 700 "$HOME/veloce-delivery"'
+scp "$RELEASE_DIR/$RELEASE_ARCHIVE" "$RELEASE_DIR/SHA256SUMS" \
+    "$SERVER_USER@168.231.75.64:veloce-delivery/"
+
+ssh "$SERVER_USER@93.127.215.63" \
+    'install -d -m 700 "$HOME/veloce-delivery"'
+scp "$RELEASE_DIR/$RELEASE_ARCHIVE" "$RELEASE_DIR/SHA256SUMS" \
+    "$SERVER_USER@93.127.215.63:veloce-delivery/"
 ```
 
-No GitHub deploy key is required on either client server.
+If your hosting control panel provides file upload, upload both files to
+`$HOME/veloce-delivery` on each server instead. Do not rename the archive
+without also updating its entry in `SHA256SUMS`.
 
-## 2. Build the client bundle once
+From this point onward, work in two SSH terminals: one connected to server A
+and one connected to server B.
 
-Run this section only on the trusted Lightrider release machine that has the
-private Veloce repository and authorized wolfSSL bundle. Do not run it on the
-two client servers.
+## 2. Install and start the release on each server
+
+Run this complete block on server A and then on server B:
 
 ```bash
-cd "$HOME/src/Veloce"
-bash scripts/setup_bundle.sh /secure/path/wolfssl-5.9.2-commercial-fips-linuxv5.2.1
-bash scripts/run_gates.sh
-VELOCE_INCLUDE_PYTHON_SDK=1 bash scripts/make_release.sh
-(cd build/dist && sha256sum -c SHA256SUMS)
-```
+export VELOCE_VERSION="1.0.0"
+export VELOCE_ARCHIVE="veloce-${VELOCE_VERSION}-linux-x86_64.tar.gz"
+export VELOCE_DELIVERY="$HOME/veloce-delivery"
+export VELOCE_ROOT="$HOME/veloce/veloce-${VELOCE_VERSION}-linux-x86_64"
+export VELOCE_VENV="$HOME/.venvs/veloce-${VELOCE_VERSION}"
 
-The gates must end with `ALL GATES GREEN`. The release command creates:
-
-```text
-build/dist/veloce-1.0.0-linux-x86_64.tar.gz
-build/dist/SHA256SUMS
-```
-
-The tarball contains the agent, CLI, qSearch, the versioned wolfCrypt FIPS
-shared object, the PQC provider, build records, Python SDK wheel, and this
-two-server demonstration. It does not contain wolfSSL source, Veloce native
-implementation source, Git history, build trees, or internal plans.
-
-This procedure requires the full bundle with the Python SDK. An archive made
-with `VELOCE_INCLUDE_PYTHON_SDK=0` cannot run the two-server Python example.
-
-Only distribute the tarball and its checksum. Never copy `vendor/wolfssl`,
-`build/fips-src`, `build/pqc-src`, private keys, or `~/.veloce` state to a
-client server. If using Zenodo, download the versioned Linux binary artifact,
-not a GitHub-generated source archive.
-
-## 3. Copy and verify the same archive on both servers
-
-On each server, install only the runtime prerequisites:
-
-```bash
 sudo apt-get update
 sudo apt-get install -y ca-certificates python3 python3-venv
-install -d -m 700 "$HOME/veloce-delivery"
-```
 
-From the administrator workstation, copy the two release files. Adjust the
-local path to wherever the approved release artifacts were downloaded.
+test -f "$VELOCE_DELIVERY/$VELOCE_ARCHIVE" || {
+    echo "STOP: $VELOCE_ARCHIVE was not uploaded" >&2
+    exit 1
+}
+test -f "$VELOCE_DELIVERY/SHA256SUMS" || {
+    echo "STOP: SHA256SUMS was not uploaded" >&2
+    exit 1
+}
 
-```bash
-release_dir="$HOME/Downloads/veloce-1.0.0"
-scp "$release_dir/veloce-1.0.0-linux-x86_64.tar.gz" \
-    "$release_dir/SHA256SUMS" lr168:veloce-delivery/
-scp "$release_dir/veloce-1.0.0-linux-x86_64.tar.gz" \
-    "$release_dir/SHA256SUMS" lr93:veloce-delivery/
-```
-
-Run on both servers:
-
-```bash
-cd "$HOME/veloce-delivery"
-sed -n '/  veloce-1\.0\.0-linux-x86_64\.tar\.gz$/p' SHA256SUMS \
-    | sha256sum -c -
+checksum_line="$(awk -v name="$VELOCE_ARCHIVE" \
+    '$2 == name {print; exit}' "$VELOCE_DELIVERY/SHA256SUMS")"
+test -n "$checksum_line" || {
+    echo "STOP: SHA256SUMS has no entry for $VELOCE_ARCHIVE" >&2
+    exit 1
+}
+printf '%s\n' "$checksum_line" \
+    | (cd "$VELOCE_DELIVERY" && sha256sum -c -) || exit 1
 
 install -d -m 700 "$HOME/veloce"
-tar -xzf veloce-1.0.0-linux-x86_64.tar.gz -C "$HOME/veloce"
+tar -xzf "$VELOCE_DELIVERY/$VELOCE_ARCHIVE" -C "$HOME/veloce"
 
-export VELOCE_ROOT="$HOME/veloce/veloce-1.0.0-linux-x86_64"
-test -x "$VELOCE_ROOT/bin/veloce-fire-up"
-test -f "$VELOCE_ROOT/lib/libwolfssl.so.45.0.0"
-test -f "$VELOCE_ROOT/lib/libveloce-pqc.so"
-test -f "$VELOCE_ROOT"/veloce_pqc-*.whl
-test -f "$VELOCE_ROOT/examples/two-server/two_party_demo.py"
-```
-
-The checksum must report `OK`. The two servers must use the identical
-versioned archive; compare `sha256sum` output if there is any doubt.
-
-## 4. Install the SDK and fire up Veloce
-
-Run on both servers:
-
-```bash
-export VELOCE_ROOT="$HOME/veloce/veloce-1.0.0-linux-x86_64"
-export VELOCE_VENV="$HOME/.venvs/veloce-1.0.0"
+test -x "$VELOCE_ROOT/bin/veloce-fire-up" || {
+    echo "STOP: the uploaded file is not the complete Veloce binary release" >&2
+    exit 1
+}
+test -f "$VELOCE_ROOT/examples/two-server/two_party_demo.py" || {
+    echo "STOP: the release does not contain the two-server demo" >&2
+    exit 1
+}
+compgen -G "$VELOCE_ROOT/veloce_pqc-*.whl" >/dev/null || {
+    echo "STOP: the release does not contain the Python SDK wheel" >&2
+    exit 1
+}
 
 python3 -m venv "$VELOCE_VENV"
-"$VELOCE_VENV/bin/python" -m pip install --no-index \
+"$VELOCE_VENV/bin/python" -m pip install --no-index --force-reinstall \
     "$VELOCE_ROOT"/veloce_pqc-*.whl
+
+printf 'export VELOCE_ROOT=%q\nexport VELOCE_PYTHON=%q\n' \
+    "$VELOCE_ROOT" "$VELOCE_VENV/bin/python" \
+    >"$HOME/.veloce-test-env"
+chmod 600 "$HOME/.veloce-test-env"
 
 "$VELOCE_ROOT/bin/veloce-fire-up"
 ```
 
-`veloce-fire-up` generates `~/.veloce/agent.json` with absolute library paths
-for this extracted bundle, starts the local agent, and runs status plus
-self-test. It is safe to run again when the recorded agent is already alive.
+The checksum must report `OK`. Startup must report a healthy status and passing
+self-tests, including `"state":"ok"`, `"approved_mode":true`, FIPS module
+status `0`, healthy entropy, and passing PQC tests.
 
-Expected results: status reports `"state":"ok"`,
-`"approved_mode":true`, FIPS module status `0`, and healthy entropy.
-Self-test reports passing CAST, entropy, and PQC tests. The PID is stored in
-`~/.veloce/agent.pid` and diagnostic output in `~/.veloce/agent.log`.
-
-Do not open a firewall port for Veloce. The agent communicates through
-`~/.veloce/agent.sock` on its own server.
-
-For each later SSH login, restore these convenience variables before running
-the example commands:
+For a later SSH login, restore the two convenience variables with:
 
 ```bash
-export VELOCE_ROOT="$HOME/veloce/veloce-1.0.0-linux-x86_64"
-export VELOCE_PYTHON="$HOME/.venvs/veloce-1.0.0/bin/python"
+source "$HOME/.veloce-test-env"
 ```
 
-## 5. Setup failure guide
+## 3. How test files move between the servers
 
-- `cd: .../Veloce: No such file or directory`: that path belongs to the
-  release-machine source checkout. On a client, use the extracted
-  `$HOME/veloce/veloce-1.0.0-linux-x86_64` directory.
-- `BUNDLE STILL MISSING` or `licensed bundle not found`: do not provision the
-  wolfSSL source on the client. Obtain the approved client tarball containing
-  `lib/libwolfssl.so.45.0.0`.
-- Missing `veloce_pqc-*.whl` or `two_party_demo.py`: the SDK-free archive was
-  delivered. Rebuild or obtain the full archive with
-  `VELOCE_INCLUDE_PYTHON_SDK=1`.
-- `No module named veloce`: use `$VELOCE_PYTHON`, or reinstall the included
-  wheel into the named virtual environment.
-- `cannot connect ... agent.sock` with `No such file or directory`: the agent
-  did not create its socket. Check `cat ~/.veloce/agent.pid` and
-  `tail -n 100 ~/.veloce/agent.log`, then rerun
-  `"$VELOCE_ROOT/bin/veloce-fire-up"`.
-- `cannot connect ... agent.sock` with `Connection refused`: the socket is
-  stale and its agent is dead. `"$VELOCE_ROOT/bin/veloce-fire-up"` removes
-  stale local PID/socket files before starting the replacement.
-- `Connection to ... closed` immediately after a command guarded by
-  `set -e`: an earlier test command failed and terminated that remote shell.
-  Reconnect, omit `set -e` while diagnosing, and run each `test -f` command
-  individually to identify the missing path. Do not put `set -e` in an SSH
-  login startup file.
-- `Permission denied`: confirm the archive checksum and inspect
-  `ls -l "$VELOCE_ROOT/bin"`; do not run the release as root merely to bypass
-  an incorrect extraction.
-- `No space left on device`: stop startup commands and recover disk space
-  before extracting again. Do not treat a partial extraction as usable.
+The cryptographic agent does not communicate over the network. The demo only
+needs to move a few public JSON documents. Use the same local computer that
+uploaded the release as the transfer point; the two servers do not need SSH
+access to each other.
 
-## 6. Test an ML-DSA signature
-
-On host A (`lr168`):
+Keep a local terminal open and set the SSH user there:
 
 ```bash
-export VELOCE_ROOT="$HOME/veloce/veloce-1.0.0-linux-x86_64"
-export VELOCE_PYTHON="$HOME/.venvs/veloce-1.0.0/bin/python"
-printf '%s\n' 'Lightrider two-server signature test' >/tmp/lr-message.txt
+export SERVER_USER="YOUR_SSH_USER"
+```
+
+Each transfer below uses two `scp` commands: download from one server to the
+local computer, then upload to the other server.
+
+## 4. Test an ML-DSA signature
+
+On server A, create a signed document:
+
+```bash
+source "$HOME/.veloce-test-env"
+
+printf '%s\n' 'Lightrider two-server signature test' \
+    > /tmp/veloce-message.txt
 "$VELOCE_PYTHON" "$VELOCE_ROOT/examples/two-server/two_party_demo.py" \
     sign-create \
-    --message-file /tmp/lr-message.txt \
-    --out /tmp/lr-signed.json
+    --message-file /tmp/veloce-message.txt \
+    --out /tmp/veloce-signed.json
 ```
 
-Use the administrator workstation as the transfer point:
+On the local computer, move the signed document from server A to server B:
 
 ```bash
-scp lr168:/tmp/lr-signed.json /tmp/lr-signed.json
-scp /tmp/lr-signed.json lr93:/tmp/lr-signed.json
+scp "$SERVER_USER@168.231.75.64:/tmp/veloce-signed.json" \
+    /tmp/veloce-signed.json
+scp /tmp/veloce-signed.json \
+    "$SERVER_USER@93.127.215.63:/tmp/veloce-signed.json"
 ```
 
-On host B (`lr93`):
+On server B, verify it:
 
 ```bash
-export VELOCE_ROOT="$HOME/veloce/veloce-1.0.0-linux-x86_64"
-export VELOCE_PYTHON="$HOME/.venvs/veloce-1.0.0/bin/python"
+source "$HOME/.veloce-test-env"
 "$VELOCE_PYTHON" "$VELOCE_ROOT/examples/two-server/two_party_demo.py" \
-    verify --input /tmp/lr-signed.json
+    verify --input /tmp/veloce-signed.json
 ```
 
-Expected result: `signature valid: True`. For a negative test, alter the
-message or signature in a copy of the JSON document and confirm verification
-fails.
+Expected result:
+
+```text
+signature valid: True
+```
 
 This proves signature interoperability. Production identity still requires a
-trusted binding between host A and its ML-DSA public key.
+trusted binding between server A and its ML-DSA public key.
 
-## 7. Test ML-KEM shared-secret establishment
+## 5. Test ML-KEM shared-secret establishment
 
-Host B is the recipient and owns the private key. On host B:
+Server B is the recipient and owns the private key. On server B, create its
+public document and private agent handle:
 
 ```bash
-export VELOCE_ROOT="$HOME/veloce/veloce-1.0.0-linux-x86_64"
-export VELOCE_PYTHON="$HOME/.venvs/veloce-1.0.0/bin/python"
+source "$HOME/.veloce-test-env"
+
 "$VELOCE_PYTHON" "$VELOCE_ROOT/examples/two-server/two_party_demo.py" \
     kem-init \
-    --public-out /tmp/lr-bob-public.json \
-    --private-state /tmp/lr-bob-private.json
+    --public-out /tmp/veloce-b-public.json \
+    --private-state /tmp/veloce-b-private.json
 ```
 
-The private-state document contains an agent capability handle. It remains on
-host B with mode `0600`. Do not restart host B's agent until `kem-finish`
-completes.
-
-Move only the public document to host A through the workstation:
+On the local computer, copy only the public document to server A:
 
 ```bash
-scp lr93:/tmp/lr-bob-public.json /tmp/lr-bob-public.json
-scp /tmp/lr-bob-public.json lr168:/tmp/lr-bob-public.json
+scp "$SERVER_USER@93.127.215.63:/tmp/veloce-b-public.json" \
+    /tmp/veloce-b-public.json
+scp /tmp/veloce-b-public.json \
+    "$SERVER_USER@168.231.75.64:/tmp/veloce-b-public.json"
 ```
 
-On host A:
+Do not copy `/tmp/veloce-b-private.json` off server B. Do not restart server
+B's Veloce agent until `kem-finish` completes because the private key is held
+by that agent.
+
+On server A, encapsulate a shared secret:
 
 ```bash
-export VELOCE_ROOT="$HOME/veloce/veloce-1.0.0-linux-x86_64"
-export VELOCE_PYTHON="$HOME/.venvs/veloce-1.0.0/bin/python"
+source "$HOME/.veloce-test-env"
+
 "$VELOCE_PYTHON" "$VELOCE_ROOT/examples/two-server/two_party_demo.py" \
     kem-encapsulate \
-    --public-input /tmp/lr-bob-public.json \
-    --response-out /tmp/lr-kem-response.json
+    --public-input /tmp/veloce-b-public.json \
+    --response-out /tmp/veloce-kem-response.json
 ```
 
-Move the encapsulation response to host B:
+On the local computer, copy the response to server B:
 
 ```bash
-scp lr168:/tmp/lr-kem-response.json /tmp/lr-kem-response.json
-scp /tmp/lr-kem-response.json lr93:/tmp/lr-kem-response.json
+scp "$SERVER_USER@168.231.75.64:/tmp/veloce-kem-response.json" \
+    /tmp/veloce-kem-response.json
+scp /tmp/veloce-kem-response.json \
+    "$SERVER_USER@93.127.215.63:/tmp/veloce-kem-response.json"
 ```
 
-On host B:
+On server B, finish the exchange:
 
 ```bash
-export VELOCE_ROOT="$HOME/veloce/veloce-1.0.0-linux-x86_64"
-export VELOCE_PYTHON="$HOME/.venvs/veloce-1.0.0/bin/python"
+source "$HOME/.veloce-test-env"
 "$VELOCE_PYTHON" "$VELOCE_ROOT/examples/two-server/two_party_demo.py" \
     kem-finish \
-    --private-state /tmp/lr-bob-private.json \
-    --response-input /tmp/lr-kem-response.json
+    --private-state /tmp/veloce-b-private.json \
+    --response-input /tmp/veloce-kem-response.json
 ```
 
-Expected result: `shared secrets match: True`. The script compares SHA-256
-fingerprints; it never transfers or prints the shared secret. `kem-finish`
-releases the recipient's agent-held private key after the test.
+Expected result:
 
-ML-KEM does not encrypt an application message. A production protocol still
-needs an approved KDF, authenticated encryption, transcript binding, replay
-protection, peer authentication, and persistent key lifecycle. Prefer a
-reviewed hybrid-TLS integration rather than inventing that protocol.
+```text
+shared secrets match: True
+```
 
-## 8. Collect evidence and stop the manual agents
+The demo compares SHA-256 fingerprints; it never transfers or prints the
+shared secret. ML-KEM alone does not encrypt application data. A production
+protocol also needs an approved KDF, authenticated encryption, transcript
+binding, replay protection, peer authentication, and key lifecycle controls.
 
-On each host:
+## 6. Record results and stop the test agents
+
+Run on both servers:
 
 ```bash
-export VELOCE_ROOT="$HOME/veloce/veloce-1.0.0-linux-x86_64"
-cd "$HOME/veloce-delivery"
-sed -n '/  veloce-1\.0\.0-linux-x86_64\.tar\.gz$/p' SHA256SUMS \
-    | sha256sum -c -
+source "$HOME/.veloce-test-env"
 
 "$VELOCE_ROOT/bin/veloce" --json validation
 "$VELOCE_ROOT/bin/veloce" --json cbom cyclonedx \
     >"$HOME/veloce-agent-cbom.json"
-cat "$VELOCE_ROOT/lib/wolfcrypt-fips.build-record.json"
-cat "$VELOCE_ROOT/lib/veloce-pqc.build-record.json"
 tail -n 100 "$HOME/.veloce/agent.log"
 
-agent_pid="$(cat "$HOME/.veloce/agent.pid")"
-if kill -0 "$agent_pid" 2>/dev/null; then
-    kill "$agent_pid"
+if test -s "$HOME/.veloce/agent.pid"; then
+    agent_pid="$(cat "$HOME/.veloce/agent.pid")"
+    if kill -0 "$agent_pid" 2>/dev/null; then
+        kill "$agent_pid"
+    fi
 fi
 ```
 
-On host B, remove the obsolete private capability-handle document only after
-`kem-finish` has released the agent-held key:
+After `kem-finish` succeeds, remove the temporary private handle document on
+server B:
 
 ```bash
-rm -f /tmp/lr-bob-private.json
+rm -f /tmp/veloce-b-private.json
 ```
 
-For a later Veloce release, stop the old agent before starting the newly
-extracted version. Do not overwrite libraries in a directory used by a
-running agent; extract each release into its own versioned directory.
+## Troubleshooting
+
+- `No such file or directory` for the archive or `SHA256SUMS`: upload both
+  release files to `$HOME/veloce-delivery` on that server.
+- Checksum failure: do not continue. Upload the archive and checksum again
+  from the same release.
+- Missing `veloce_pqc-*.whl` or `two_party_demo.py`: you uploaded a source
+  archive or an SDK-free runtime. Upload the full Linux binary release.
+- `No module named veloce`: run the example with `$VELOCE_PYTHON`, not the
+  system `python3`, or repeat the wheel installation.
+- `cannot connect ... agent.sock`: inspect
+  `tail -n 100 "$HOME/.veloce/agent.log"` and rerun
+  `"$VELOCE_ROOT/bin/veloce-fire-up"`.
+- `scp: Permission denied`: on the local computer, verify `SERVER_USER` and
+  the SSH credentials used when uploading the release. This is an SSH transfer
+  problem, not a Veloce agent problem.
+- `shared secrets match: False`: repeat the ML-KEM test from `kem-init` and
+  ensure the public document and response came from the current run.
