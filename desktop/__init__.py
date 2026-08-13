@@ -1,0 +1,1 @@
+"""Veloce Desktop application package."""

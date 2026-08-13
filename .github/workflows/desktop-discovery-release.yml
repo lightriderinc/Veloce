@@ -1,0 +1,71 @@
+name: Desktop discovery release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version embedded in artifact names
+        required: true
+        default: 1.0.0
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows x86-64 UI and qSearch
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install build tools
+        shell: pwsh
+        run: |
+          rustup default stable
+          python -m pip install -r desktop\requirements-build.txt
+      - name: Verify desktop and release contracts
+        shell: pwsh
+        run: python -m pytest -q tests\test_desktop.py
+      - name: Build portable executable release
+        shell: pwsh
+        run: |
+          .\installer\windows\build-release.ps1 `
+            -Version "${{ inputs.version }}" `
+            -DiscoveryOnly `
+            -SkipMsi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: veloce-${{ inputs.version }}-windows-x86_64-discovery
+          path: build/dist/veloce-${{ inputs.version }}-windows-x86_64.zip
+          if-no-files-found: error
+
+  macos:
+    name: macOS UI and qSearch
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install build tools
+        run: |
+          rustup default stable
+          python3 -m pip install -r desktop/requirements-build.txt
+      - name: Verify desktop and release contracts
+        run: python3 -m pytest -q tests/test_desktop.py
+      - name: Detect architecture
+        id: arch
+        run: echo "value=$(uname -m)" >> "$GITHUB_OUTPUT"
+      - name: Build ad-hoc-signed discovery DMG
+        run: |
+          installer/macos/build-release.sh \
+            --version "${{ inputs.version }}" \
+            --arch "${{ steps.arch.outputs.value }}" \
+            --discovery-only
+      - uses: actions/upload-artifact@v4
+        with:
+          name: veloce-${{ inputs.version }}-macos-${{ steps.arch.outputs.value }}-discovery
+          path: build/dist/veloce-${{ inputs.version }}-macos-${{ steps.arch.outputs.value }}.dmg
+          if-no-files-found: error

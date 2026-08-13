@@ -80,13 +80,22 @@ Merge the agent's runtime validation records into a scan with
 | `qsearch/` | Rust discovery engine + CBOM outputs (spec 4) |
 | `tests/` | Gate battery G0-G4 (spec 9) |
 | `examples/` | SDK walkthrough; TLS sample pair lands at S3 |
-| `installer/` | systemd unit, packaging layout, Windows notes |
+| `desktop/` | local qSearch UI and live FIPS validation dashboard |
+| `installer/` | Linux systemd, Windows MSI, and macOS DMG inputs |
 | `cbom/` | CBOM field mapping to the Light Rider workbook (Appendix B) |
 | `docs/` | quickstart, status, Zenodo release guide |
 | `assets/branding/` | banner and logo assets (spec 7.3) |
 
 The manual two-host ML-DSA/ML-KEM interoperability procedure is in
 [`docs/two-server-manual-test.md`](docs/two-server-manual-test.md).
+
+## Desktop UI (Windows and macOS)
+
+Veloce Desktop provides a click-to-scan qSearch interface and a live FIPS/PQC
+validation dashboard. Native builders produce a Windows executable/ZIP/MSI and
+a macOS app/DMG. See
+[`docs/desktop-releases.md`](docs/desktop-releases.md) for full-runtime and
+discovery-only build instructions and the platform certification boundaries.
 
 ## Releasing
 

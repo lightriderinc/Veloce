@@ -1,0 +1,14 @@
+{
+  "format": "veloce-m2302-inventory/1",
+  "generated_unix": 1786554398,
+  "entries": [
+    {
+      "information_system": "examples",
+      "asset": "examples/README.md",
+      "cryptographic_algorithm": "X25519",
+      "usage": "key establishment",
+      "quantum_vulnerable": true,
+      "evidence": "examples/README.md:17"
+    }
+  ]
+}

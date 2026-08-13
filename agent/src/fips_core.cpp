@@ -3,9 +3,8 @@
 // every function is resolved with dlsym from the dynamically loaded,
 // hash-verified libwolfssl.so (spec 5.2, 8).
 #include "fips_core.hpp"
+#include "platform_loader.hpp"
 #include "sha256.hpp"
-
-#include <dlfcn.h>
 
 #include <cstring>
 #include <mutex>
@@ -28,7 +27,7 @@ using FnSetSeedCb = int (*)(wc_RngSeed_Cb);
 } // namespace
 
 struct FipsCore::Impl {
-    void* dl = nullptr;
+    platform::SharedLibrary library;
     FnGetStatus getStatus = nullptr;
     FnRunAllCast runAllCast = nullptr;
     FnInitRng initRng = nullptr;
@@ -44,7 +43,6 @@ struct FipsCore::Impl {
 
     ~Impl() {
         if (rngReady && freeRng) freeRng(&rng);
-        if (dl) dlclose(dl);
     }
 };
 
@@ -66,17 +64,9 @@ bool FipsCore::load(const std::string& libPath,
         lastError_ = err;
         return false;
     }
-    // Absolute path only; no search-path trust (spec 8, library loading).
-    if (libPath.empty() || libPath[0] != '/') {
-        err = "FIPS library path must be absolute";
-        return false;
-    }
-    impl_->dl = dlopen(libPath.c_str(), RTLD_NOW | RTLD_LOCAL);
-    if (!impl_->dl) {
-        err = std::string("dlopen failed: ") + dlerror();
-        return false;
-    }
-    auto sym = [&](const char* name) { return dlsym(impl_->dl, name); };
+    // Absolute path only; restricted loader search, no PATH/CWD trust.
+    if (!impl_->library.open(libPath, err)) return false;
+    auto sym = [&](const char* name) { return impl_->library.symbol(name); };
     impl_->getStatus =
         reinterpret_cast<FnGetStatus>(sym("wolfCrypt_GetStatus_fips"));
     impl_->runAllCast =

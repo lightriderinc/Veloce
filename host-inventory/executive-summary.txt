@@ -2,8 +2,8 @@ Veloce qSearch executive summary
 Lightrider Inc | Veloce PQC SDK
 
 Scan root: /
-Files scanned: 31
-Total findings: 31
+Files scanned: 32
+Total findings: 32
 Quantum-vulnerable findings: 8
 High-risk findings: 7
 PQC-ready findings: 0

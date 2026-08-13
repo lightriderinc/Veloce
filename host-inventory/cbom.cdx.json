@@ -414,6 +414,22 @@
     },
     {
       "type": "cryptographic-asset",
+      "name": "library: libsodium (libsodium-19479d6d.so.26.2.0)",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "veloce:classification": "context",
+        "veloce:risk": "medium"
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "sha256:0ddb0009726fd4ea61cf66f2c29e52829ae95cc6600e392a0974b311e41b1be3"
+          }
+        ]
+      }
+    },
+    {
+      "type": "cryptographic-asset",
       "name": "library: libsodium (libsodium.so.23.3.0)",
       "cryptoProperties": {
         "assetType": "algorithm",
@@ -455,14 +471,14 @@
       "evidence": {
         "occurrences": [
           {
-            "location": "/proc/997876/maps"
+            "location": "/proc/1964354/maps"
           }
         ]
       }
     },
     {
       "type": "cryptographic-asset",
-      "name": "process crypto usage: libgcrypt",
+      "name": "process crypto usage: wolfSSL",
       "cryptoProperties": {
         "assetType": "algorithm",
         "veloce:classification": "context",
@@ -471,14 +487,14 @@
       "evidence": {
         "occurrences": [
           {
-            "location": "/proc/1001061/maps"
+            "location": "/proc/3206660/maps"
           }
         ]
       }
     },
     {
       "type": "cryptographic-asset",
-      "name": "process scan: 178 processes unreadable (run as root for full coverage)",
+      "name": "process scan: 202 processes unreadable; non-root scans cannot guarantee full process coverage",
       "cryptoProperties": {
         "assetType": "algorithm",
         "veloce:classification": "context",

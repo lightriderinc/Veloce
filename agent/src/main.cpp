@@ -7,20 +7,32 @@
 #include "keystore.hpp"
 #include "pqc_core.hpp"
 
+#include <signal.h>
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <sddl.h>
+#include <io.h>
+#else
 #include <arpa/inet.h>
 #include <fcntl.h>
-#include <signal.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
 #include <syslog.h>
 #include <unistd.h>
+#endif
 
 #include <atomic>
+#include <algorithm>
 #include <cerrno>
+#include <cstdio>
 #include <cstring>
 #include <ctime>
 #include <deque>
+#include <filesystem>
 #include <fstream>
 #include <mutex>
 #include <sstream>
@@ -72,7 +84,11 @@ struct Agent {
     std::string activePolicy = "LIGHTRIDER_PQC_TRANSITION";
     time_t startedAt = 0;
     std::atomic<bool> stopping{false};
+#ifdef _WIN32
+    HANDLE listenHandle = INVALID_HANDLE_VALUE;
+#else
     int listenFd = -1;
+#endif
 
     std::mutex errMutex;
     std::deque<std::string> recentErrors;
@@ -81,7 +97,12 @@ struct Agent {
         std::lock_guard<std::mutex> lk(errMutex);
         recentErrors.push_back(e);
         if (recentErrors.size() > 64) recentErrors.pop_front();
+#ifdef _WIN32
+        std::string line = "veloce-agent warning: " + e + "\n";
+        OutputDebugStringA(line.c_str());
+#else
         syslog(LOG_WARNING, "veloce-agent: %s", e.c_str());
+#endif
     }
     bool approvedMode() {
         return fips.ok() && startup.castsPassed && startup.drbgOk &&
@@ -98,15 +119,28 @@ Agent g_agent;
 
 void onSignal(int) {
     g_agent.stopping = true;
+#ifdef _WIN32
+    if (g_agent.listenHandle != INVALID_HANDLE_VALUE) {
+        CancelIoEx(g_agent.listenHandle, nullptr);
+        CloseHandle(g_agent.listenHandle);
+        g_agent.listenHandle = INVALID_HANDLE_VALUE;
+    }
+#else
     if (g_agent.listenFd >= 0) close(g_agent.listenFd);
+#endif
 }
 
 std::string defaultSocketPath() {
+#ifdef _WIN32
+    const char* pipe = getenv("VELOCE_PIPE");
+    return pipe && *pipe ? pipe : R"(\\.\pipe\LightRider.PQC.v1)";
+#else
     const char* env = getenv("VELOCE_SOCKET");
     if (env && *env) return env;
     if (geteuid() == 0) return "/run/veloce/agent.sock";
     const char* home = getenv("HOME");
     return std::string(home ? home : "/tmp") + "/.veloce/agent.sock";
+#endif
 }
 
 bool readFile(const std::string& path, std::string& out) {
@@ -129,7 +163,14 @@ Value loadJsonFile(const std::string& path) {
 }
 
 void mkdirParents(const std::string& path) {
-    std::string dir = path.substr(0, path.find_last_of('/'));
+#ifdef _WIN32
+    std::error_code ec;
+    std::filesystem::create_directories(
+        std::filesystem::path(path).parent_path(), ec);
+#else
+    size_t separator = path.find_last_of('/');
+    if (separator == std::string::npos) return;
+    std::string dir = path.substr(0, separator);
     std::string cur;
     std::istringstream ss(dir);
     std::string part;
@@ -138,6 +179,70 @@ void mkdirParents(const std::string& path) {
         cur += (cur == "/" || cur.empty()) ? part : "/" + part;
         mkdir(cur.c_str(), 0700);
     }
+#endif
+}
+
+std::string defaultDiagnosticPath() {
+    std::filesystem::path directory;
+#ifdef _WIN32
+    const char* localAppData = getenv("LOCALAPPDATA");
+    if (localAppData && *localAppData) {
+        directory = std::filesystem::u8path(localAppData) /
+                    "Lightrider" / "Veloce";
+    } else {
+        std::error_code ec;
+        directory = std::filesystem::temp_directory_path(ec) / "Veloce";
+        if (ec) directory = std::filesystem::path(".") / "Veloce";
+    }
+#else
+    directory = std::filesystem::path(g_agent.socketPath).parent_path();
+#endif
+    std::filesystem::path path =
+        directory / ("diag-" + std::to_string(time(nullptr)) + ".json");
+    return path.string();
+}
+
+bool writePrivateFile(const std::string& path, const std::string& text,
+                      std::string& error) {
+    mkdirParents(path);
+#ifdef _WIN32
+    std::ofstream file(std::filesystem::u8path(path),
+                       std::ios::binary | std::ios::trunc);
+    if (!file) {
+        error = "cannot write bundle";
+        return false;
+    }
+    file.write(text.data(), static_cast<std::streamsize>(text.size()));
+    file.flush();
+    if (!file) {
+        error = "short write to bundle";
+        return false;
+    }
+#else
+    int fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (fd < 0) {
+        error = "cannot write bundle: " + std::string(strerror(errno));
+        return false;
+    }
+    size_t offset = 0;
+    while (offset < text.size()) {
+        ssize_t written = write(fd, text.data() + offset,
+                                text.size() - offset);
+        if (written < 0 && errno == EINTR) continue;
+        if (written <= 0) {
+            error = "short write to bundle";
+            close(fd);
+            return false;
+        }
+        offset += static_cast<size_t>(written);
+    }
+    if (close(fd) != 0) {
+        error = "cannot close diagnostic bundle: " +
+                std::string(strerror(errno));
+        return false;
+    }
+#endif
+    return true;
 }
 
 // ---------------------------------------------------------------- policies
@@ -373,29 +478,75 @@ Value cbomCycloneDx() {
 
 // ------------------------------------------------------------------ server
 
-bool sendFrame(int fd, const std::string& payload) {
-    uint32_t len = htonl(static_cast<uint32_t>(payload.size()));
-    char hdr[4];
-    memcpy(hdr, &len, 4);
-    std::string out(hdr, 4);
-    out += payload;
+// A byte-stream abstraction shared by UNIX sockets and Windows named pipes.
+#ifdef _WIN32
+using ConnectionHandle = HANDLE;
+#else
+using ConnectionHandle = int;
+#endif
+
+bool writeExact(ConnectionHandle connection, const void* data, size_t len) {
     size_t off = 0;
-    while (off < out.size()) {
-        ssize_t n = write(fd, out.data() + off, out.size() - off);
+    while (off < len) {
+#ifdef _WIN32
+        DWORD written = 0;
+        DWORD remaining = static_cast<DWORD>(
+            std::min(len - off, static_cast<size_t>(0xffffffffu)));
+        BOOL ok = WriteFile(connection,
+                            static_cast<const char*>(data) + off,
+                            remaining, &written, nullptr);
+        if (!ok || written == 0) return false;
+        size_t n = written;
+#else
+        ssize_t n = write(connection, static_cast<const char*>(data) + off,
+                          len - off);
         if (n <= 0) return false;
+#endif
         off += static_cast<size_t>(n);
     }
     return true;
 }
 
-bool recvExact(int fd, void* buf, size_t len) {
+bool recvExact(ConnectionHandle connection, void* buf, size_t len) {
     size_t off = 0;
     while (off < len) {
-        ssize_t n = read(fd, static_cast<char*>(buf) + off, len - off);
+#ifdef _WIN32
+        DWORD received = 0;
+        DWORD remaining = static_cast<DWORD>(
+            std::min(len - off, static_cast<size_t>(0xffffffffu)));
+        BOOL ok = ReadFile(connection, static_cast<char*>(buf) + off,
+                           remaining, &received, nullptr);
+        if (!ok || received == 0) return false;
+        size_t n = received;
+#else
+        ssize_t n = read(connection, static_cast<char*>(buf) + off, len - off);
         if (n <= 0) return false;
+#endif
         off += static_cast<size_t>(n);
     }
     return true;
+}
+
+bool sendFrame(ConnectionHandle connection, const std::string& payload) {
+    uint32_t len = static_cast<uint32_t>(payload.size());
+    unsigned char header[4] = {
+        static_cast<unsigned char>((len >> 24) & 0xff),
+        static_cast<unsigned char>((len >> 16) & 0xff),
+        static_cast<unsigned char>((len >> 8) & 0xff),
+        static_cast<unsigned char>(len & 0xff),
+    };
+    return writeExact(connection, header, sizeof(header)) &&
+           writeExact(connection, payload.data(), payload.size());
+}
+
+void closeConnection(ConnectionHandle connection) {
+#ifdef _WIN32
+    FlushFileBuffers(connection);
+    DisconnectNamedPipe(connection);
+    CloseHandle(connection);
+#else
+    close(connection);
+#endif
 }
 
 Value errorValue(const std::string& code, const std::string& message) {
@@ -707,11 +858,7 @@ bool dispatch(const std::string& op, const Value& params, Value& result,
     }
     if (op == "generate_diagnostic_bundle") {
         std::string path = params.getString("path");
-        if (path.empty()) {
-            path = g_agent.socketPath.substr(
-                       0, g_agent.socketPath.find_last_of('/')) +
-                   "/diag-" + std::to_string(time(nullptr)) + ".json";
-        }
+        if (path.empty()) path = defaultDiagnosticPath();
         Value bundle = Value::object();
         bundle.set("product", "Veloce PQC SDK diagnostic bundle");
         bundle.set("generated_unix", static_cast<int64_t>(time(nullptr)));
@@ -728,17 +875,9 @@ bool dispatch(const std::string& op, const Value& params, Value& result,
                    "bundle contains metadata only: no keys, seeds, "
                    "passwords, tokens or customer plaintext");
         std::string text = bundle.dump();
-        int fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
-        if (fd < 0) {
-            error = errorValue("internal",
-                               "cannot write bundle: " +
-                                   std::string(strerror(errno)));
-            return false;
-        }
-        ssize_t w = write(fd, text.data(), text.size());
-        close(fd);
-        if (w != static_cast<ssize_t>(text.size())) {
-            error = errorValue("internal", "short write to bundle");
+        std::string writeError;
+        if (!writePrivateFile(path, text, writeError)) {
+            error = errorValue("internal", writeError);
             return false;
         }
         result = Value::object();
@@ -784,18 +923,37 @@ bool dispatch(const std::string& op, const Value& params, Value& result,
         result = Value::object();
         result.set("stopping", true);
         g_agent.stopping = true;
+#ifdef _WIN32
+        // Wake a possibly blocked ConnectNamedPipe. Retry covers the short
+        // interval between handing one client to a worker and creating the
+        // next listening instance.
+        for (int attempt = 0; attempt < 50; ++attempt) {
+            HANDLE wake = CreateFileA(
+                g_agent.socketPath.c_str(), GENERIC_READ | GENERIC_WRITE,
+                0, nullptr, OPEN_EXISTING, 0, nullptr);
+            if (wake != INVALID_HANDLE_VALUE) {
+                CloseHandle(wake);
+                break;
+            }
+            Sleep(10);
+        }
+#else
         if (g_agent.listenFd >= 0) shutdown(g_agent.listenFd, SHUT_RDWR);
+#endif
         return true;
     }
     error = errorValue("unknown_op", "unsupported operation: " + op);
     return false;
 }
 
-void serveConnection(int fd) {
+void serveConnection(ConnectionHandle fd) {
     while (!g_agent.stopping) {
-        uint32_t lenBe = 0;
-        if (!recvExact(fd, &lenBe, 4)) break;
-        uint32_t len = ntohl(lenBe);
+        unsigned char header[4] = {};
+        if (!recvExact(fd, header, sizeof(header))) break;
+        uint32_t len = (static_cast<uint32_t>(header[0]) << 24) |
+                       (static_cast<uint32_t>(header[1]) << 16) |
+                       (static_cast<uint32_t>(header[2]) << 8) |
+                       static_cast<uint32_t>(header[3]);
         if (len == 0 || len > kMaxFrame) break;
         std::string payload(len, '\0');
         if (!recvExact(fd, payload.data(), len)) break;
@@ -831,15 +989,28 @@ void serveConnection(int fd) {
             break;
         }
     }
-    close(fd);
+    closeConnection(fd);
 }
 
-bool peerAuthorized(int fd) {
+bool peerAuthorized(ConnectionHandle fd) {
+#ifdef _WIN32
+    // The named pipe is created with a protected ACL for the agent identity,
+    // SYSTEM, and local administrators. Authorization is therefore decided by
+    // the kernel before ConnectNamedPipe succeeds.
+    return fd != INVALID_HANDLE_VALUE;
+#elif defined(__APPLE__)
+    uid_t uid = 0;
+    gid_t gid = 0;
+    if (getpeereid(fd, &uid, &gid) != 0) return false;
+    (void)gid;
+    return uid == geteuid() || uid == 0;
+#else
     struct ucred cred;
     socklen_t len = sizeof(cred);
     if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &cred, &len) != 0)
         return false;
     return cred.uid == geteuid() || cred.uid == 0;
+#endif
 }
 
 void printBanner(bool quiet) {
@@ -850,11 +1021,20 @@ void printBanner(bool quiet) {
         " | approved mode: " + (g_agent.approvedMode() ? "on" : "off");
     std::string line1 = std::string("Lightrider Inc -- Veloce PQC SDK v") +
                         kAgentVersion;
+#ifdef _WIN32
+    OutputDebugStringA((line1 + "\n" + status + "\n").c_str());
+#else
     syslog(LOG_INFO, "%s", line1.c_str());
     syslog(LOG_INFO, "%s", status.c_str());
+#endif
     bool noBanner = getenv("VELOCE_NO_BANNER") &&
                     std::string(getenv("VELOCE_NO_BANNER")) == "1";
-    if (quiet || noBanner || !isatty(STDOUT_FILENO)) return;
+#ifdef _WIN32
+    bool terminal = _isatty(_fileno(stdout)) != 0;
+#else
+    bool terminal = isatty(STDOUT_FILENO) != 0;
+#endif
+    if (quiet || noBanner || !terminal) return;
     printf("%s%s\n%s\n", kBanner, line1.c_str(), status.c_str());
     fflush(stdout);
 }
@@ -873,11 +1053,17 @@ int main(int argc, char** argv) {
         const char* env = getenv("VELOCE_CONFIG");
         if (env) configPath = env;
     }
+#ifndef _WIN32
     openlog("veloce-agent", LOG_PID, LOG_DAEMON);
+#endif
 
     Value cfg = configPath.empty() ? Value::object()
                                    : loadJsonFile(configPath);
+#ifdef _WIN32
+    g_agent.socketPath = cfg.getString("pipe", defaultSocketPath());
+#else
     g_agent.socketPath = cfg.getString("socket", defaultSocketPath());
+#endif
     std::string fipsLib = cfg.getString("fips_lib");
     std::string fipsRecordPath = cfg.getString("fips_record");
     std::string pqcLib = cfg.getString("pqc_lib");
@@ -945,6 +1131,100 @@ int main(int argc, char** argv) {
 
     printBanner(quiet);
 
+#ifdef _WIN32
+    int wideSize = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+                                       g_agent.socketPath.c_str(), -1,
+                                       nullptr, 0);
+    if (wideSize <= 0) {
+        fprintf(stderr, "veloce-agent: invalid UTF-8 named-pipe path\n");
+        return 1;
+    }
+    std::wstring pipePath(static_cast<size_t>(wideSize), L'\0');
+    MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+                        g_agent.socketPath.c_str(), -1,
+                        pipePath.data(), wideSize);
+
+    HANDLE processToken = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &processToken)) {
+        fprintf(stderr, "veloce-agent: cannot read process token (%lu)\n",
+                static_cast<unsigned long>(GetLastError()));
+        return 1;
+    }
+    DWORD tokenBytes = 0;
+    GetTokenInformation(processToken, TokenUser, nullptr, 0, &tokenBytes);
+    std::vector<unsigned char> tokenBuffer(tokenBytes);
+    if (tokenBytes == 0 || !GetTokenInformation(
+            processToken, TokenUser, tokenBuffer.data(), tokenBytes,
+            &tokenBytes)) {
+        fprintf(stderr, "veloce-agent: cannot read process user SID (%lu)\n",
+                static_cast<unsigned long>(GetLastError()));
+        CloseHandle(processToken);
+        return 1;
+    }
+    CloseHandle(processToken);
+    auto* tokenUser = reinterpret_cast<TOKEN_USER*>(tokenBuffer.data());
+    LPWSTR sidText = nullptr;
+    if (!ConvertSidToStringSidW(tokenUser->User.Sid, &sidText)) {
+        fprintf(stderr, "veloce-agent: cannot format process user SID (%lu)\n",
+                static_cast<unsigned long>(GetLastError()));
+        return 1;
+    }
+
+    // Protected DACL: the agent identity, SYSTEM, and local administrators.
+    // No other interactive, network, or anonymous principal receives access.
+    PSECURITY_DESCRIPTOR descriptor = nullptr;
+    std::wstring sddl = L"D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GA;;;";
+    sddl += sidText;
+    sddl += L")";
+    LocalFree(sidText);
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            sddl.c_str(), SDDL_REVISION_1, &descriptor, nullptr)) {
+        fprintf(stderr, "veloce-agent: cannot create named-pipe ACL (%lu)\n",
+                static_cast<unsigned long>(GetLastError()));
+        return 1;
+    }
+    SECURITY_ATTRIBUTES security{};
+    security.nLength = sizeof(security);
+    security.lpSecurityDescriptor = descriptor;
+    security.bInheritHandle = FALSE;
+
+    signal(SIGINT, onSignal);
+    signal(SIGTERM, onSignal);
+    std::vector<std::thread> workers;
+    while (!g_agent.stopping) {
+        HANDLE pipe = CreateNamedPipeW(
+            pipePath.c_str(), PIPE_ACCESS_DUPLEX,
+            PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT |
+                PIPE_REJECT_REMOTE_CLIENTS,
+            PIPE_UNLIMITED_INSTANCES, kMaxFrame + 4, kMaxFrame + 4,
+            0, &security);
+        if (pipe == INVALID_HANDLE_VALUE) {
+            fprintf(stderr, "veloce-agent: CreateNamedPipeW failed (%lu)\n",
+                    static_cast<unsigned long>(GetLastError()));
+            LocalFree(descriptor);
+            return 1;
+        }
+        g_agent.listenHandle = pipe;
+        BOOL connected = ConnectNamedPipe(pipe, nullptr);
+        if (!connected && GetLastError() != ERROR_PIPE_CONNECTED) {
+            CloseHandle(pipe);
+            if (g_agent.stopping) break;
+            continue;
+        }
+        g_agent.listenHandle = INVALID_HANDLE_VALUE;
+        if (g_agent.stopping) {
+            closeConnection(pipe);
+            break;
+        }
+        if (!peerAuthorized(pipe)) {
+            g_agent.recordError("rejected unauthorized local peer");
+            closeConnection(pipe);
+            continue;
+        }
+        workers.emplace_back(serveConnection, pipe);
+    }
+    LocalFree(descriptor);
+#else
     mkdirParents(g_agent.socketPath);
     unlink(g_agent.socketPath.c_str());
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -994,12 +1274,17 @@ int main(int argc, char** argv) {
         }
         workers.emplace_back(serveConnection, cfd);
     }
+#endif
 
     for (auto& t : workers)
         if (t.joinable()) t.join();
     g_agent.keys.releaseAll(); // zeroization on shutdown (spec 8)
+#ifdef _WIN32
+    OutputDebugStringA("veloce-agent stopped\n");
+#else
     unlink(g_agent.socketPath.c_str());
     syslog(LOG_INFO, "veloce-agent stopped");
     closelog();
+#endif
     return 0;
 }

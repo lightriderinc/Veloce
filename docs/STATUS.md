@@ -1,20 +1,23 @@
 # Veloce V1 implementation status
 
 Reference: plan/veloce-engineering-guide.pdf. Gates per spec 9 and 10.
-Date: 2026-08-05. Platform covered: Linux x86-64 (this reference machine).
+Date: 2026-08-12. Validated platform covered: Linux x86-64 (this reference
+machine). Windows/macOS desktop source and native packaging paths are present;
+platform FIPS runtime validation remains input-dependent as recorded below.
 
 ## Gate status
 
 | Gate | Definition (spec 10) | Status |
 |---|---|---|
 | G0 | FIPS module passes self-tests on the Linux reference machine | GREEN: testwolfcrypt "Test complete", return code 0; hash flow (configure, make, fips-hash.sh, make) automated in scripts/build_fips.sh |
-| G1 | Entropy pipeline + ML-KEM/ML-DSA pass KATs and failure-injection on both OSes | GREEN on Linux: wolfEntropy wired via wc_SetSeed_Cb, nofallback fail-closed verified (DRBG refuses without seed source); PQC PCT + negative tests at startup and in gate battery. Windows source solution is present, but native agent/IPC/packaging and the approved dynamic-library configuration remain pending. |
+| G1 | Entropy pipeline + ML-KEM/ML-DSA pass KATs and failure-injection on both OSes | GREEN on Linux: wolfEntropy wired via wc_SetSeed_Cb, nofallback fail-closed verified (DRBG refuses without seed source); PQC PCT + negative tests at startup and in gate battery. Windows named-pipe/loader source and macOS socket/loader source are present, but native validation remains pending approved platform libraries and test hosts. |
 | G2 | qSearch detects all planted crypto, reports FP/blind spots | GREEN: controlled-environment test detects RSA, ECDSA, DH, certificates (provenance "directly observed"), ML-KEM as pqc-ready; JSON/CSV/CycloneDX/M-23-02/summary outputs |
 | G3 | TLS + EMS gate groups | PARTIAL: policy control plane (configure_hybrid_tls, profiles) done; EMS-disabled zero-network test GREEN; set_entropy_mixin state machine done. TLS data plane (hybrid handshake sample pair) pending: needs full TLS+MLKEM library build (autotools) |
-| G4 | Full security battery + packaging | PARTIAL: IPC hardening tests GREEN (peer creds, framing, protocol version, oversized frames), diagnostic redaction GREEN, key zeroization contract GREEN; MSI/deb/rpm packaging pending (installer/ holds unit file + layout) |
+| G4 | Full security battery + packaging | PARTIAL: IPC hardening tests GREEN on Linux (peer creds, framing, protocol version, oversized frames), diagnostic redaction GREEN, key zeroization contract GREEN; Windows executable/ZIP/MSI and macOS app/DMG builders plus desktop tests are present, but native signing, installer tests, and platform FIPS gates remain pending. |
 
-Gate battery: `bash scripts/run_gates.sh` (33 tests, all passing, including the
-file-exchange two-host demo exercised against a local test agent).
+Gate battery: `bash scripts/run_gates.sh` (42 tests, all passing, including the
+desktop evidence/release-contract tests and file-exchange two-host demo
+exercised against a local test agent).
 
 ## Deliverables checklist (spec 7.2)
 
@@ -25,7 +28,9 @@ file-exchange two-host demo exercised against a local test agent).
 | wolfCrypt shared library | built from licensed bundle, hash recorded |
 | qSearch binary | done (Rust, std-only) |
 | CLI | done (Rust, std-only; status line from live validation) |
-| Windows MSI + service | pending (vendor DLL-config item at S0) |
+| Windows desktop executable + ZIP/MSI | build path done; native signed artifact and FIPS runtime pending vendor DLL/OE inputs |
+| macOS desktop app + DMG | build path done; discovery-only until an approved native FIPS dylib/OE record is supplied |
+| Desktop qSearch/FIPS UI | done; click-to-scan reports and live-evidence-only FIPS dashboard |
 | Linux systemd unit | done (installer/linux/veloce-agent.service); deb/rpm wrap pending |
 | API reference | ipc/protocol.md + Python docstrings |
 | Architecture / security / FIPS / entropy docs | spec PDF + docs/quickstart.md + this file |

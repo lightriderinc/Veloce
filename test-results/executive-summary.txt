@@ -1,0 +1,14 @@
+Veloce qSearch executive summary
+Lightrider Inc | Veloce PQC SDK
+
+Scan root: examples
+Files scanned: 3
+Total findings: 32
+Quantum-vulnerable findings: 1
+High-risk findings: 1
+PQC-ready findings: 31
+
+Quantum-vulnerable algorithms by count:
+      1  X25519
+
+Outputs: findings.json (canonical), findings.csv, cbom.cdx.json (CycloneDX 1.6), m2302-inventory.json, workbook-discovery-findings.csv and workbook-scanning-log.csv (Light_Rider_CBOM_Template_Updated.xlsx sheets), executive-summary.txt; runtime detail in qsearch-run.log

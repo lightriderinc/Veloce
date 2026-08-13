@@ -1,0 +1,164 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "metadata": {
+    "tools": [
+      {
+        "vendor": "Lightrider Inc",
+        "name": "qSearch",
+        "version": "1.0.0"
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "cryptographic-asset",
+      "name": "ML-DSA",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "veloce:classification": "pqc-ready",
+        "veloce:risk": "info"
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "examples/python-demo.py:2"
+          },
+          {
+            "location": "examples/python-demo.py:27"
+          },
+          {
+            "location": "examples/README.md:6"
+          },
+          {
+            "location": "examples/README.md:26"
+          },
+          {
+            "location": "examples/two-server/two_party_demo.py:2"
+          },
+          {
+            "location": "examples/two-server/two_party_demo.py:61"
+          },
+          {
+            "location": "examples/two-server/two_party_demo.py:74"
+          },
+          {
+            "location": "examples/two-server/two_party_demo.py:75"
+          }
+        ]
+      }
+    },
+    {
+      "type": "cryptographic-asset",
+      "name": "ML-KEM",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "veloce:classification": "pqc-ready",
+        "veloce:risk": "info"
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "examples/python-demo.py:2"
+          },
+          {
+            "location": "examples/python-demo.py:18"
+          },
+          {
+            "location": "examples/python-demo.py:19"
+          },
+          {
+            "location": "examples/python-demo.py:20"
+          },
+          {
+            "location": "examples/python-demo.py:22"
+          },
+          {
+            "location": "examples/python-demo.py:23"
+          },
+          {
+            "location": "examples/README.md:5"
+          },
+          {
+            "location": "examples/README.md:18"
+          },
+          {
+            "location": "examples/README.md:26"
+          },
+          {
+            "location": "examples/two-server/two_party_demo.py:2"
+          },
+          {
+            "location": "examples/two-server/two_party_demo.py:88"
+          },
+          {
+            "location": "examples/two-server/two_party_demo.py:91"
+          },
+          {
+            "location": "examples/two-server/two_party_demo.py:96"
+          },
+          {
+            "location": "examples/two-server/two_party_demo.py:107"
+          },
+          {
+            "location": "examples/two-server/two_party_demo.py:108"
+          },
+          {
+            "location": "examples/two-server/two_party_demo.py:109"
+          },
+          {
+            "location": "examples/two-server/two_party_demo.py:115"
+          },
+          {
+            "location": "examples/two-server/two_party_demo.py:127"
+          },
+          {
+            "location": "examples/two-server/two_party_demo.py:128"
+          },
+          {
+            "location": "examples/two-server/two_party_demo.py:129"
+          },
+          {
+            "location": "examples/two-server/two_party_demo.py:130"
+          },
+          {
+            "location": "examples/two-server/two_party_demo.py:133"
+          }
+        ]
+      }
+    },
+    {
+      "type": "cryptographic-asset",
+      "name": "X25519",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "veloce:classification": "quantum-vulnerable",
+        "veloce:risk": "high"
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "examples/README.md:17"
+          }
+        ]
+      }
+    },
+    {
+      "type": "cryptographic-asset",
+      "name": "X25519MLKEM768 hybrid",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "veloce:classification": "pqc-ready",
+        "veloce:risk": "info"
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "examples/README.md:17"
+          }
+        ]
+      }
+    }
+  ]
+}

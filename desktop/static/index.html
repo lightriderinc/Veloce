@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Veloce Desktop</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">V</div>
+        <div><strong>VELOCE</strong><span>POST-QUANTUM SECURITY</span></div>
+      </div>
+      <nav aria-label="Primary navigation">
+        <button class="nav-item active" data-page="dashboard">
+          <span class="nav-icon">◫</span>Security dashboard
+        </button>
+        <button class="nav-item" data-page="qsearch">
+          <span class="nav-icon">⌕</span>qSearch
+        </button>
+      </nav>
+      <div class="sidebar-foot">
+        <div id="platform-label">Loading platform…</div>
+        <button id="quit-button" class="quiet-button">Quit Veloce</button>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">LIGHTRIDER INC</p>
+          <h1 id="page-title">Security dashboard</h1>
+        </div>
+        <div class="live-pill"><span id="live-dot"></span><span id="live-label">Checking agent</span></div>
+      </header>
+
+      <section id="dashboard-page" class="page active">
+        <div class="hero-card">
+          <div>
+            <p class="eyebrow">CRYPTographic RUNTIME</p>
+            <h2>FIPS module assurance</h2>
+            <p id="fips-message" class="muted">Reading the local Veloce agent…</p>
+          </div>
+          <div class="hero-actions">
+            <button id="refresh-fips" class="secondary-button">Refresh</button>
+            <button id="run-self-test" class="primary-button">Run self-tests</button>
+          </div>
+        </div>
+
+        <div class="metric-grid">
+          <article class="metric-card">
+            <span class="metric-label">Approved mode</span>
+            <strong id="approved-value">—</strong>
+            <small id="approved-detail">Awaiting live status</small>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">FIPS module</span>
+            <strong id="fips-value">—</strong>
+            <small id="fips-detail">Certificate and version</small>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Entropy</span>
+            <strong id="entropy-value">—</strong>
+            <small id="entropy-detail">Fail-closed source health</small>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">PQC provider</span>
+            <strong id="pqc-value">—</strong>
+            <small id="pqc-detail">ML-KEM-768 + ML-DSA-65</small>
+          </article>
+        </div>
+
+        <div class="content-grid">
+          <article class="panel">
+            <div class="panel-heading">
+              <div><p class="eyebrow">BOUNDARY VIEW</p><h3>Validation components</h3></div>
+              <span id="validation-source" class="tag">No live data</span>
+            </div>
+            <div id="validation-items" class="validation-list"></div>
+          </article>
+          <article class="panel detail-panel">
+            <div class="panel-heading"><div><p class="eyebrow">MODULE RECORD</p><h3>Build identity</h3></div></div>
+            <dl id="module-record" class="record-list"></dl>
+            <div class="boundary-note">
+              <strong>Boundary disclosure</strong>
+              <p>ML-KEM and ML-DSA are provided beside the v5 FIPS boundary. The dashboard never labels them as inside certificate #4718.</p>
+            </div>
+          </article>
+        </div>
+
+        <article id="self-test-panel" class="panel hidden">
+          <div class="panel-heading"><div><p class="eyebrow">ON-DEMAND RESULT</p><h3>Self-tests</h3></div></div>
+          <pre id="self-test-output"></pre>
+        </article>
+      </section>
+
+      <section id="qsearch-page" class="page">
+        <div class="scan-hero">
+          <div>
+            <p class="eyebrow">CRYPTOGRAPHIC DISCOVERY</p>
+            <h2>Find quantum-vulnerable cryptography</h2>
+            <p class="muted">Scan source code and certificates locally. No project content leaves this computer.</p>
+          </div>
+          <div class="scan-controls">
+            <label for="scan-path">Folder to scan</label>
+            <div class="path-row">
+              <input id="scan-path" type="text" placeholder="Choose a project folder" autocomplete="off">
+              <button id="choose-folder" class="secondary-button">Choose folder</button>
+              <button id="start-scan" class="primary-button">Start qSearch</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="scan-progress" class="progress-panel hidden" aria-live="polite">
+          <div class="spinner"></div>
+          <div><strong>qSearch is scanning</strong><p id="scan-progress-text">Inspecting source and certificates…</p></div>
+        </div>
+
+        <div id="scan-results" class="hidden">
+          <div class="result-heading">
+            <div><p class="eyebrow">LATEST REPORT</p><h2>Discovery results</h2><p id="scan-location" class="muted"></p></div>
+            <button id="open-report" class="secondary-button">Open report folder</button>
+          </div>
+          <div class="metric-grid scan-metrics">
+            <article class="metric-card"><span class="metric-label">Files scanned</span><strong id="files-count">0</strong><small>Readable source and certificate files</small></article>
+            <article class="metric-card danger"><span class="metric-label">Quantum-vulnerable</span><strong id="vulnerable-count">0</strong><small>Prioritize migration planning</small></article>
+            <article class="metric-card"><span class="metric-label">High risk</span><strong id="high-count">0</strong><small>High-priority findings</small></article>
+            <article class="metric-card success"><span class="metric-label">PQC-ready</span><strong id="pqc-count">0</strong><small>Post-quantum usage detected</small></article>
+          </div>
+          <div class="content-grid">
+            <article class="panel">
+              <div class="panel-heading"><div><p class="eyebrow">TOP SIGNALS</p><h3>Algorithms by count</h3></div></div>
+              <div id="algorithm-chart" class="bar-chart"></div>
+            </article>
+            <article class="panel report-files">
+              <div class="panel-heading"><div><p class="eyebrow">OUTPUT SET</p><h3>Generated evidence</h3></div></div>
+              <ul>
+                <li><strong>findings.json / findings.csv</strong><span>Canonical and tabular findings</span></li>
+                <li><strong>cbom.cdx.json</strong><span>CycloneDX 1.6 CBOM</span></li>
+                <li><strong>executive-summary.txt</strong><span>Client-facing summary</span></li>
+                <li><strong>m2302-inventory.json</strong><span>OMB M-23-02 inventory</span></li>
+              </ul>
+            </article>
+          </div>
+          <article class="panel findings-panel">
+            <div class="panel-heading"><div><p class="eyebrow">FINDINGS</p><h3>Observed cryptography</h3></div><span id="findings-note" class="tag"></span></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Algorithm</th><th>Classification</th><th>Risk</th><th>Asset</th></tr></thead>
+                <tbody id="findings-body"></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast hidden" role="alert"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -42,7 +42,9 @@ else
 fi
 
 step "Configuration"
-python3 scripts/gen_config.py
+python3 scripts/gen_config.py \
+    --out "$ROOT/build/gate-agent.json" \
+    --socket "$ROOT/build/gate-agent.sock"
 
 step "Gate battery (pytest)"
 if ! python3 -c "import pytest" >/dev/null 2>&1; then

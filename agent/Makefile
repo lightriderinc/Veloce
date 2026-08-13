@@ -23,11 +23,11 @@ $(BUILD)/main.o: src/main.cpp src/json.hpp src/keystore.hpp \
 		src/fips_core.hpp src/pqc_core.hpp | $(BUILD)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(BUILD)/fips_core.o: src/fips_core.cpp src/fips_core.hpp src/sha256.hpp \
+$(BUILD)/fips_core.o: src/fips_core.cpp src/fips_core.hpp src/platform_loader.hpp src/sha256.hpp \
 		| $(BUILD)
 	$(CXX) $(CXXFLAGS) -I$(FIPS_INC) -c $< -o $@
 
-$(BUILD)/pqc_core.o: src/pqc_core.cpp src/pqc_core.hpp src/sha256.hpp \
+$(BUILD)/pqc_core.o: src/pqc_core.cpp src/pqc_core.hpp src/platform_loader.hpp src/sha256.hpp \
 		| $(BUILD)
 	$(CXX) $(CXXFLAGS) -DWOLFSSL_USER_SETTINGS -I$(PQC_CFG) -I$(PQC_INC) \
 		-c $< -o $@

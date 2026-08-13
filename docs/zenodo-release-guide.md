@@ -187,7 +187,8 @@ concept DOI stays constant; each version gets its own DOI.
 | Platform | Artifact | Install |
 |---|---|---|
 | Linux x86-64 | veloce-1.0.0-linux-x86_64.tar.gz | untar, enter its directory, run `bin/veloce-fire-up`; optionally `pip install` the included wheel |
-| Windows 11 x86-64 | veloce-1.0.0-windows-x86_64.msi (pending vendor DLL-config items) | MSI installs VelocePqcAgent service + CLI; then `pip install veloce_pqc-*.whl` |
+| Windows 11 x86-64 | veloce-1.0.0-windows-x86_64.msi | Clickable qSearch/FIPS dashboard; full-runtime publication remains blocked on the approved Windows FIPS DLL/OE inputs |
+| macOS x86-64/arm64 | veloce-1.0.0-macos-ARCH.dmg | Clickable qSearch/FIPS dashboard; discovery-only unless an approved macOS FIPS dylib/OE record is supplied |
 | Any (SDK only) | veloce_pqc-1.0.0-py3-none-any.whl | `pip install`; requires a reachable agent |
 
 Verification instructions to include in the description:

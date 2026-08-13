@@ -4,9 +4,8 @@
 // RTLD_LOCAL so provider symbols can never shadow the FIPS module
 // (spec 5.3: distinct name and namespace).
 #include "pqc_core.hpp"
+#include "platform_loader.hpp"
 #include "sha256.hpp"
-
-#include <dlfcn.h>
 
 #include <cstring>
 #include <memory>
@@ -53,7 +52,7 @@ constexpr size_t kMaxRaw = 8192;         // covers all ML-DSA raw sizes
 } // namespace
 
 struct PqcCore::Impl {
-    void* dl = nullptr;
+    platform::SharedLibrary library;
     FnKemInit kemInit = nullptr;
     FnKemFree kemFree = nullptr;
     FnKemMakeKeyWithRandom kemMakeKey = nullptr;
@@ -76,9 +75,7 @@ struct PqcCore::Impl {
     // The provider build is SINGLE_THREADED; serialize every call.
     std::mutex m;
 
-    ~Impl() {
-        if (dl) dlclose(dl);
-    }
+    ~Impl() = default;
 };
 
 PqcCore::PqcCore() : impl_(new Impl) {}
@@ -97,16 +94,8 @@ bool PqcCore::load(const std::string& libPath,
               ", found " + sha256_;
         return false;
     }
-    if (libPath.empty() || libPath[0] != '/') {
-        err = "PQC provider path must be absolute";
-        return false;
-    }
-    impl_->dl = dlopen(libPath.c_str(), RTLD_NOW | RTLD_LOCAL);
-    if (!impl_->dl) {
-        err = std::string("dlopen failed: ") + dlerror();
-        return false;
-    }
-    auto sym = [&](const char* name) { return dlsym(impl_->dl, name); };
+    if (!impl_->library.open(libPath, err)) return false;
+    auto sym = [&](const char* name) { return impl_->library.symbol(name); };
     impl_->kemInit = reinterpret_cast<FnKemInit>(sym("wc_MlKemKey_Init"));
     impl_->kemFree = reinterpret_cast<FnKemFree>(sym("wc_MlKemKey_Free"));
     impl_->kemMakeKey = reinterpret_cast<FnKemMakeKeyWithRandom>(

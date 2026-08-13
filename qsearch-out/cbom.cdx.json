@@ -471,14 +471,14 @@
       "evidence": {
         "occurrences": [
           {
-            "location": "/proc/997876/maps"
+            "location": "/proc/1964354/maps"
           }
         ]
       }
     },
     {
       "type": "cryptographic-asset",
-      "name": "process crypto usage: libgcrypt",
+      "name": "process crypto usage: wolfSSL",
       "cryptoProperties": {
         "assetType": "algorithm",
         "veloce:classification": "context",
@@ -487,14 +487,14 @@
       "evidence": {
         "occurrences": [
           {
-            "location": "/proc/1001061/maps"
+            "location": "/proc/3206660/maps"
           }
         ]
       }
     },
     {
       "type": "cryptographic-asset",
-      "name": "process scan: 191 processes unreadable (run as root for full coverage)",
+      "name": "process scan: 207 processes unreadable; non-root scans cannot guarantee full process coverage",
       "cryptoProperties": {
         "assetType": "algorithm",
         "veloce:classification": "context",

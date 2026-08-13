@@ -12,7 +12,10 @@ section 8 (IPC hardening).
   or from root.
 - Windows: named pipe `\\.\pipe\LightRider.PQC.v1` with an explicit ACL
   (service identity, authorized local user, local admins; deny
-  anonymous/remote/unauthenticated). Deferred to the Windows track.
+  anonymous/remote/unauthenticated). Remote pipe clients are rejected.
+- macOS: UNIX domain stream socket under the current user's Veloce application
+  state directory. The agent verifies the peer with `getpeereid`; connections
+  are accepted only from the agent's own UID or root.
 
 ## Framing
 

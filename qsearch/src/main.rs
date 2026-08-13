@@ -28,14 +28,14 @@ struct Stats {
 
 #[derive(Clone)]
 pub struct Finding {
-    pub asset: String,           // file path, library, or process
+    pub asset: String, // file path, library, or process
     pub algorithm: String,
     pub service: String,
-    pub classification: String,  // quantum-vulnerable | pqc-ready | context
-    pub risk: String,            // high | medium | info
-    pub evidence: String,        // file:line or fingerprint
+    pub classification: String, // quantum-vulnerable | pqc-ready | context
+    pub risk: String,           // high | medium | info
+    pub evidence: String,       // file:line or fingerprint
     pub detail: String,
-    pub provenance: String,      // spec 4.3 provenance label
+    pub provenance: String, // spec 4.3 provenance label
     pub confidence: String,
     pub last_observed: u64,
 }
@@ -80,7 +80,7 @@ fn main() {
         i += 1;
     }
     let root = match (mode_system, root) {
-        (true, r) => r.unwrap_or_else(|| PathBuf::from("/")),
+        (true, r) => r.unwrap_or_else(default_system_root),
         (false, Some(r)) => r,
         (false, None) => {
             eprintln!(
@@ -119,36 +119,73 @@ fn main() {
     write_cyclonedx(&out_dir, &findings);
     write_m2302(&out_dir, &findings, &root);
     write_summary(&out_dir, &findings, files_scanned, &root);
-    workbook::write_discovery_findings(&out_dir, &findings, mode, VERSION,
-                                       started_epoch);
-    workbook::write_scanning_log(&out_dir, &findings, mode, VERSION,
-                                 started_epoch,
-                                 &root.display().to_string(), files_scanned);
-    write_run_log(&out_dir, &findings, &stats, mode, &root, started_epoch,
-                  started.elapsed(), agent_records.is_some());
+    workbook::write_discovery_findings(&out_dir, &findings, mode, VERSION, started_epoch);
+    workbook::write_scanning_log(
+        &out_dir,
+        &findings,
+        mode,
+        VERSION,
+        started_epoch,
+        &root.display().to_string(),
+        files_scanned,
+    );
+    write_run_log(
+        &out_dir,
+        &findings,
+        &stats,
+        mode,
+        &root,
+        started_epoch,
+        started.elapsed(),
+        agent_records.is_some(),
+    );
     if !quiet {
         print_client_summary(&out_dir, &findings, mode);
+    }
+}
+
+fn default_system_root() -> PathBuf {
+    #[cfg(target_os = "windows")]
+    {
+        return std::env::var("SystemDrive")
+            .map(|drive| PathBuf::from(format!("{}\\", drive)))
+            .unwrap_or_else(|_| PathBuf::from(r"C:\"));
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        PathBuf::from("/")
     }
 }
 
 // Client-facing output: the findings that matter plus the next commands.
 // Runtime detail lives in <out>/qsearch-run.log.
 fn print_client_summary(out: &Path, findings: &[Finding], mode: &str) {
-    let qv = findings.iter()
-        .filter(|f| f.classification == "quantum-vulnerable").count();
+    let qv = findings
+        .iter()
+        .filter(|f| f.classification == "quantum-vulnerable")
+        .count();
     let high = findings.iter().filter(|f| f.risk == "high").count();
-    let ready = findings.iter()
-        .filter(|f| f.classification == "pqc-ready").count();
-    println!("Findings: {} total | {} quantum-vulnerable | {} high risk | \
-              {} PQC-ready", findings.len(), qv, high, ready);
+    let ready = findings
+        .iter()
+        .filter(|f| f.classification == "pqc-ready")
+        .count();
+    println!(
+        "Findings: {} total | {} quantum-vulnerable | {} high risk | \
+              {} PQC-ready",
+        findings.len(),
+        qv,
+        high,
+        ready
+    );
 
     let mut top: BTreeMap<&str, usize> = BTreeMap::new();
-    for f in findings.iter()
-        .filter(|f| f.classification == "quantum-vulnerable") {
+    for f in findings
+        .iter()
+        .filter(|f| f.classification == "quantum-vulnerable")
+    {
         *top.entry(f.algorithm.as_str()).or_default() += 1;
     }
-    let mut entries: Vec<(usize, &str)> =
-        top.into_iter().map(|(k, v)| (v, k)).collect();
+    let mut entries: Vec<(usize, &str)> = top.into_iter().map(|(k, v)| (v, k)).collect();
     entries.sort_by(|a, b| b.0.cmp(&a.0));
     if !entries.is_empty() {
         println!("\nQuantum-vulnerable, by algorithm:");
@@ -160,65 +197,102 @@ fn print_client_summary(out: &Path, findings: &[Finding], mode: &str) {
     let o = out.display();
     println!("\nReports in {}/:", o);
     println!("  executive-summary.txt            client summary");
-    println!("  workbook-discovery-findings.csv  paste into \
+    println!(
+        "  workbook-discovery-findings.csv  paste into \
               Light_Rider_CBOM_Template_Updated.xlsx, sheet \
-              \"Discovery Findings\"");
-    println!("  workbook-scanning-log.csv        paste into sheet \
-              \"Scanning Log\"");
-    println!("  findings.json / findings.csv / cbom.cdx.json / \
-              m2302-inventory.json");
+              \"Discovery Findings\""
+    );
+    println!(
+        "  workbook-scanning-log.csv        paste into sheet \
+              \"Scanning Log\""
+    );
+    println!(
+        "  findings.json / findings.csv / cbom.cdx.json / \
+              m2302-inventory.json"
+    );
     println!("  qsearch-run.log                  runtime detail");
 
     println!("\nNext commands:");
     if mode == "system" {
         if findings.iter().any(|f| f.service == "coverage limitation") {
-            println!("  sudo qsearch system --out {}    # full process \
-                      coverage", o);
+            println!(
+                "  sudo qsearch system --out {}    # full process \
+                      coverage",
+                o
+            );
         }
-        println!("  qsearch scan /etc/ssl/certs --out certs-out    \
-                  # per-certificate fingerprints");
+        println!(
+            "  qsearch scan /etc/ssl/certs --out certs-out    \
+                  # per-certificate fingerprints"
+        );
     } else {
-        println!("  qsearch system --out host-inventory    # crypto modules \
-                  installed on this host");
+        println!(
+            "  qsearch system --out host-inventory    # crypto modules \
+                  installed on this host"
+        );
     }
     let target = if mode == "scan" { " <path>" } else { "" };
-    println!("  veloce cbom > agent-cbom.json && qsearch {}{} \
+    println!(
+        "  veloce cbom > agent-cbom.json && qsearch {}{} \
               --merge-agent-cbom agent-cbom.json    # add agent runtime \
-              records", mode, target);
+              records",
+        mode, target
+    );
 }
 
-fn write_run_log(out: &Path, findings: &[Finding], stats: &Stats, mode: &str,
-                 root: &Path, started_epoch: u64,
-                 elapsed: std::time::Duration, merged: bool) {
+fn write_run_log(
+    out: &Path,
+    findings: &[Finding],
+    stats: &Stats,
+    mode: &str,
+    root: &Path,
+    started_epoch: u64,
+    elapsed: std::time::Duration,
+    merged: bool,
+) {
     let mut log = String::new();
     log.push_str(&format!("qsearch {} run log\n", VERSION));
     log.push_str(&format!("mode: {}\n", mode));
     log.push_str(&format!("root: {}\n", root.display()));
-    log.push_str(&format!("started_unix: {} ({})\n", started_epoch,
-                          workbook::iso_date(started_epoch)));
+    log.push_str(&format!(
+        "started_unix: {} ({})\n",
+        started_epoch,
+        workbook::iso_date(started_epoch)
+    ));
     log.push_str(&format!("duration_ms: {}\n", elapsed.as_millis()));
     log.push_str(&format!("files_seen: {}\n", stats.files_seen));
     log.push_str(&format!("files_scanned: {}\n", stats.files_scanned));
-    log.push_str(&format!("skipped_over_{}MB: {}\n",
-                          MAX_FILE_BYTES / (1024 * 1024),
-                          stats.skipped_large));
-    log.push_str(&format!("skipped_binary_or_unreadable: {}\n",
-                          stats.skipped_binary));
+    log.push_str(&format!(
+        "skipped_over_{}MB: {}\n",
+        MAX_FILE_BYTES / (1024 * 1024),
+        stats.skipped_large
+    ));
+    log.push_str(&format!(
+        "skipped_binary_or_unreadable: {}\n",
+        stats.skipped_binary
+    ));
     log.push_str(&format!("findings_total: {}\n", findings.len()));
     for class in ["quantum-vulnerable", "pqc-ready", "context"] {
         log.push_str(&format!(
             "findings_{}: {}\n",
             class.replace('-', "_"),
-            findings.iter().filter(|f| f.classification == class).count()));
+            findings
+                .iter()
+                .filter(|f| f.classification == class)
+                .count()
+        ));
     }
     log.push_str(&format!("agent_records_merged: {}\n", merged));
-    log.push_str("outputs: findings.json findings.csv cbom.cdx.json \
+    log.push_str(
+        "outputs: findings.json findings.csv cbom.cdx.json \
                   m2302-inventory.json executive-summary.txt \
-                  workbook-discovery-findings.csv workbook-scanning-log.csv\n");
-    log.push_str("workbook_reference: \
-                  Light_Rider_CBOM_Template_Updated.xlsx\n");
-    fs::write(out.join("qsearch-run.log"), log)
-        .expect("write qsearch-run.log");
+                  workbook-discovery-findings.csv workbook-scanning-log.csv\n",
+    );
+    log.push_str(
+        "workbook_reference: \
+                  Light_Rider_CBOM_Template_Updated.xlsx\n",
+    );
+    fs::write(out.join("qsearch-run.log"), log).expect("write qsearch-run.log");
 }
 
 fn walk(dir: &Path, f: &mut impl FnMut(&Path)) {
@@ -232,8 +306,14 @@ fn walk(dir: &Path, f: &mut impl FnMut(&Path)) {
         if path.is_dir() {
             if matches!(
                 name.as_str(),
-                ".git" | "node_modules" | "target" | "__pycache__" | ".venv"
-                    | "venv" | ".tox" | "build"
+                ".git"
+                    | "node_modules"
+                    | "target"
+                    | "__pycache__"
+                    | ".venv"
+                    | "venv"
+                    | ".tox"
+                    | "build"
             ) {
                 continue;
             }
@@ -292,9 +372,7 @@ fn scan_file(path: &Path, findings: &mut Vec<Finding>, stats: &mut Stats) {
         scan_pem_certs(path, &text, findings);
     }
 
-    if !SOURCE_EXTS.contains(&ext.as_str())
-        && !matches!(ext.as_str(), "pem" | "crt" | "cer")
-    {
+    if !SOURCE_EXTS.contains(&ext.as_str()) && !matches!(ext.as_str(), "pem" | "crt" | "cer") {
         return;
     }
 
@@ -354,10 +432,16 @@ fn b64_decode(input: &str) -> Option<Vec<u8>> {
 // Known DER-encoded OIDs searched inside certificates (heuristic SPKI /
 // signature detection; provenance "directly observed", spec 4.3).
 const OIDS: &[(&[u8], &str, &str)] = &[
-    (&[0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01],
-     "RSA", "quantum-vulnerable"),
-    (&[0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01],
-     "EC (ECDSA/ECDH)", "quantum-vulnerable"),
+    (
+        &[0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01],
+        "RSA",
+        "quantum-vulnerable",
+    ),
+    (
+        &[0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01],
+        "EC (ECDSA/ECDH)",
+        "quantum-vulnerable",
+    ),
     (&[0x2b, 0x65, 0x70], "Ed25519", "quantum-vulnerable"),
     (&[0x2b, 0x65, 0x6e], "X25519", "quantum-vulnerable"),
 ];
@@ -396,8 +480,12 @@ fn scan_pem_certs(path: &Path, text: &str, findings: &mut Vec<Finding>) {
                 algorithm: alg,
                 service: "authentication (X.509 certificate)".to_string(),
                 classification: class.to_string(),
-                risk: if class == "quantum-vulnerable" { "medium" }
-                      else { "info" }.to_string(),
+                risk: if class == "quantum-vulnerable" {
+                    "medium"
+                } else {
+                    "info"
+                }
+                .to_string(),
                 evidence: format!("sha256:{}", fp),
                 detail: format!("PEM certificate in {}", path.display()),
                 provenance: "directly observed".to_string(),
@@ -424,8 +512,13 @@ fn finding_json(f: &Finding) -> J {
     }
 }
 
-fn write_json(out: &Path, findings: &[Finding], files: u64, root: &Path,
-              agent_records: &Option<String>) {
+fn write_json(
+    out: &Path,
+    findings: &[Finding],
+    files: u64,
+    root: &Path,
+    agent_records: &Option<String>,
+) {
     let doc = jobj! {
         "format" => J::s("veloce-qsearch-findings/1"),
         "tool" => J::s("qSearch"),
@@ -524,8 +617,7 @@ fn write_cyclonedx(out: &Path, findings: &[Finding]) {
         },
         "components" => J::Arr(comps),
     };
-    fs::write(out.join("cbom.cdx.json"), bom.pretty())
-        .expect("write cbom.cdx.json");
+    fs::write(out.join("cbom.cdx.json"), bom.pretty()).expect("write cbom.cdx.json");
 }
 
 fn write_m2302(out: &Path, findings: &[Finding], root: &Path) {
@@ -550,12 +642,10 @@ fn write_m2302(out: &Path, findings: &[Finding], root: &Path) {
         "generated_unix" => J::Num(now() as f64),
         "entries" => J::Arr(rows),
     };
-    fs::write(out.join("m2302-inventory.json"), doc.pretty())
-        .expect("write m2302-inventory.json");
+    fs::write(out.join("m2302-inventory.json"), doc.pretty()).expect("write m2302-inventory.json");
 }
 
-fn write_summary(out: &Path, findings: &[Finding], files: u64,
-                 root: &Path) {
+fn write_summary(out: &Path, findings: &[Finding], files: u64, root: &Path) {
     let qv = findings
         .iter()
         .filter(|f| f.classification == "quantum-vulnerable")
@@ -566,8 +656,10 @@ fn write_summary(out: &Path, findings: &[Finding], files: u64,
         .count();
     let high = findings.iter().filter(|f| f.risk == "high").count();
     let mut top: BTreeMap<&str, usize> = BTreeMap::new();
-    for f in findings.iter().filter(|f| f.classification ==
-                                    "quantum-vulnerable") {
+    for f in findings
+        .iter()
+        .filter(|f| f.classification == "quantum-vulnerable")
+    {
         *top.entry(f.algorithm.as_str()).or_default() += 1;
     }
     let mut summary = String::new();
@@ -580,8 +672,7 @@ fn write_summary(out: &Path, findings: &[Finding], files: u64,
     summary.push_str(&format!("High-risk findings: {}\n", high));
     summary.push_str(&format!("PQC-ready findings: {}\n\n", ready));
     summary.push_str("Quantum-vulnerable algorithms by count:\n");
-    let mut entries: Vec<(usize, &str)> =
-        top.into_iter().map(|(k, v)| (v, k)).collect();
+    let mut entries: Vec<(usize, &str)> = top.into_iter().map(|(k, v)| (v, k)).collect();
     entries.sort_by(|a, b| b.0.cmp(&a.0));
     for (count, alg) in entries.iter().take(10) {
         summary.push_str(&format!("  {:5}  {}\n", count, alg));
@@ -593,6 +684,5 @@ fn write_summary(out: &Path, findings: &[Finding], files: u64,
          (Light_Rider_CBOM_Template_Updated.xlsx sheets), \
          executive-summary.txt; runtime detail in qsearch-run.log\n",
     );
-    fs::write(out.join("executive-summary.txt"), &summary)
-        .expect("write executive-summary.txt");
+    fs::write(out.join("executive-summary.txt"), &summary).expect("write executive-summary.txt");
 }

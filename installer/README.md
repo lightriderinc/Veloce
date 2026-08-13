@@ -1,7 +1,8 @@
 # Veloce installers
 
-Deliverables per spec 7.2: Windows MSI and Linux deb/rpm. This directory
-holds the packaging inputs; installers are produced on the release machine.
+Deliverables include the Windows MSI, macOS app/DMG, and Linux package inputs.
+Installers are produced on a native release machine. The clickable qSearch and
+FIPS dashboard workflow is documented in `docs/desktop-releases.md`.
 
 ## Linux (deb/rpm, systemd)
 
@@ -36,18 +37,37 @@ The launcher generates paths for the extracted location, starts the agent,
 and runs status and self-test checks. See `docs/client-quickstart.md` in the
 repository or `docs/quickstart.md` inside the client archive.
 
-## Windows (MSI)
+## Windows (desktop executable + MSI)
 
 Spec references: named pipe `\\.\pipe\LightRider.PQC.v1` with explicit ACL,
 service `VelocePqcAgent` under `NT AUTHORITY\LocalService`, libraries under
 `Program Files` loaded with `SetDefaultDllDirectories` +
 `LoadLibraryExW` restricted search, Authenticode-signed MSI.
 
+The desktop full-runtime bundle currently starts a fail-closed agent for the
+signed-in user. Registration under `LocalService` remains a separate managed
+deployment step and is not implied by the desktop MSI.
+
+`windows/build-release.ps1` packages the Veloce Desktop executable, qSearch,
+CLI, and an approved native runtime into a portable ZIP and WiX v4 MSI. It also
+supports an explicit discovery-only build for UI/qSearch testing.
+
 The Windows module build uses the wolfSSL-provided `IDE/WIN10` FIPS
 solution (`wolfssl-fips.sln`, x64). Open vendor items before shipping
 (spec 5.2): approved DLL build configuration (the IDE ships static-library
 settings) and the `user_settings.h` variant matching module v5.2.1.
 
-The agent, CLI, and qSearch sources are portable; the Windows IPC transport
-(named pipe + ACL) replaces the UNIX socket transport in `agent/src/main.cpp`
-and `cli/src/main.rs` behind the same framing and protocol (ipc/protocol.md).
+The agent and CLI implement the Windows named-pipe transport with a protected
+local ACL behind the same framing and protocol (`ipc/protocol.md`). qSearch has
+native Windows library, policy, and certificate-store collectors.
+
+## macOS (desktop app + DMG)
+
+`macos/build-release.sh` packages `Veloce.app`, signs it, creates a compressed
+DMG, and optionally submits/staples notarization. qSearch includes native macOS
+Security-framework and Keychain inventory. The agent uses a peer-authorized
+UNIX-domain socket and restricted dylib loading.
+
+No approved macOS FIPS dylib/OE record is currently present. The macOS builder
+therefore produces a qSearch/UI discovery release unless an approved native
+runtime directory is supplied.
