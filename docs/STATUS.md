@@ -1,8 +1,22 @@
 # Veloce V1 status: pre-release
 
 Spec: plan/veloce-engineering-guide.pdf (v0.3, 2026-08-27).
-Date: 2026-08-27. Platform validated by this run: Linux x86-64.
-Gate battery: `bash scripts/run_gates.sh` -- **45 tests, all passing.**
+Date: 2026-08-27. Version: 1.1.0. Platform validated by this run: Linux
+x86-64. Gate battery: `bash scripts/run_gates.sh` -- all tests passing.
+
+## 1.1.0: the macOS track is implemented
+
+macOS moved from "desktop discovery-only" to a full platform track
+(docs/macos.md): a native qSearch system collector (frameworks, dylib
+sweep, Keychain roots, cert.pem, SSH policy, explicit dyld-cache and
+process blind spots), `scripts/build_macos.sh` (FIPS dylib, PQC dylib,
+agent, Rust tools, inline smoke gate, desktop runtime staging, tar.gz
+bundle, optional .app/DMG), a launchd LaunchAgent template plus
+`installer/macos/veloce-fire-up` (with `--launchd`), and Darwin support in
+`scripts/gen_config.py`. Rust code cross-checks clean for
+x86_64/aarch64-apple-darwin. Hard limit unchanged: no wolfCrypt
+certificate lists a macOS OE, so macOS never carries a
+validated-deployment claim; the build record says so explicitly.
 
 ## What changed in this pre-release
 

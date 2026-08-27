@@ -27,7 +27,7 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import parse_qs, urlparse
 
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 MAX_REQUEST_BYTES = 64 * 1024
 MAX_UI_FINDINGS = 500
 

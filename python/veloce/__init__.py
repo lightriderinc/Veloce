@@ -26,7 +26,7 @@ from ._client import (
     default_socket_path,
 )
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "initialize", "health", "version",
     "list_policy_profiles", "list_crypto_providers",

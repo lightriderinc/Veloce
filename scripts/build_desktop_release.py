@@ -211,7 +211,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--platform", choices=["windows", "macos"], required=True)
     parser.add_argument("--arch", choices=["x86_64", "arm64"], required=True)
-    parser.add_argument("--version", default="1.0.0")
+    parser.add_argument("--version", default="1.1.0")
     parser.add_argument("--runtime-dir", type=Path,
                         help="native bin/ + lib/ payload for live FIPS operation")
     parser.add_argument("--discovery-only", action="store_true",

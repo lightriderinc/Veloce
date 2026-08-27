@@ -1,6 +1,6 @@
 [package]
 name = "veloce-cli"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 description = "Veloce CLI: operator commands for the Lightrider Veloce agent"
 license-file = "../LICENSE"

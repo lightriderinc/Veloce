@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Veloce agent LaunchAgent template (spec 7.3 platform/macos).
+     veloce-fire-up substitutes the __VELOCE_*__ placeholders with absolute
+     paths and installs the result at
+     ~/Library/LaunchAgents/com.lightrider.veloce-agent.plist. -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.lightrider.veloce-agent</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__VELOCE_AGENT__</string>
+        <string>--config</string>
+        <string>__VELOCE_CONFIG__</string>
+        <string>--quiet</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>StandardOutPath</key>
+    <string>__VELOCE_LOG__</string>
+    <key>StandardErrorPath</key>
+    <string>__VELOCE_LOG__</string>
+</dict>
+</plist>
