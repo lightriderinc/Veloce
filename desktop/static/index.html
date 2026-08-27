@@ -20,6 +20,9 @@
         <button class="nav-item" data-page="qsearch">
           <span class="nav-icon">⌕</span>qSearch
         </button>
+        <button class="nav-item" data-page="entropy">
+          <span class="nav-icon">∿</span>Entropy
+        </button>
       </nav>
       <div class="sidebar-foot">
         <div id="platform-label">Loading platform…</div>
@@ -152,6 +155,68 @@
                 <tbody id="findings-body"></tbody>
               </table>
             </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="entropy-page" class="page">
+        <div class="hero-card">
+          <div>
+            <p class="eyebrow">RANDOM-BIT GENERATION</p>
+            <h2>Entropy streaming</h2>
+            <p id="entropy-message" class="muted">Reading the local Veloce agent…</p>
+          </div>
+          <div class="hero-actions">
+            <button id="refresh-entropy" class="secondary-button">Refresh</button>
+          </div>
+        </div>
+
+        <div class="metric-grid">
+          <article class="metric-card">
+            <span class="metric-label">Local provider</span>
+            <strong id="provider-value">—</strong>
+            <small id="provider-detail">Awaiting live status</small>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Seed blocks verified</span>
+            <strong id="blocks-value">—</strong>
+            <small>RCT + APT passed before every seed</small>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Health failures</span>
+            <strong id="failures-value">—</strong>
+            <small>Any failure halts key generation</small>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Last seed</span>
+            <strong id="last-seed-value">—</strong>
+            <small>DRBG seed / reseed time</small>
+          </article>
+        </div>
+
+        <div class="content-grid">
+          <article class="panel detail-panel">
+            <div class="panel-heading"><div><p class="eyebrow">STREAMING SPECS</p><h3>Local generator</h3></div></div>
+            <dl id="entropy-specs" class="record-list"></dl>
+            <div class="boundary-note">
+              <strong>No raw entropy</strong>
+              <p>Raw entropy never leaves the agent and is never displayed. This page shows specifications and verification counters only.</p>
+            </div>
+          </article>
+          <article class="panel">
+            <div class="panel-heading">
+              <div><p class="eyebrow">CLOUD EMS</p><h3>Cloud entropy mix-in</h3></div>
+              <span id="mixin-state" class="tag">off</span>
+            </div>
+            <p class="muted">When enabled, the agent fetches signed entropy packets from the Lightrider EMS and mixes them into the DRBG as additional input. This adds zero credited entropy: the local verified provider stays the only seed and the FIPS claim is unchanged. If EMS is unreachable, mixing is skipped and local operation continues.</p>
+            <div class="mixin-row">
+              <label class="switch">
+                <input type="checkbox" id="mixin-toggle">
+                <span class="slider"></span>
+              </label>
+              <span id="mixin-label">Cloud EMS disabled</span>
+            </div>
+            <dl id="mixin-record" class="record-list"></dl>
           </article>
         </div>
       </section>

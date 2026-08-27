@@ -12,7 +12,8 @@ The UI provides:
 - generated JSON, CSV, CycloneDX 1.6, M-23-02, workbook, and executive-summary
   reports under `Documents/Veloce Reports`;
 - live Veloce agent status, FIPS module version and certificate, pre-load
-  SHA-256 verification, module status, CAST results, wolfEntropy health, and
+  SHA-256 verification, module status, CAST results, local entropy verification
+  counters, and
   PQC provider self-test state;
 - an on-demand **Run self-tests** button.
 
@@ -38,7 +39,7 @@ live agent response:
 - FIPS library hash verified before loading;
 - FIPS module status is zero;
 - power-on and conditional algorithm self-tests passed;
-- wolfEntropy RCT/APT health is passing;
+- the Lightrider seed callback's RCT/APT verification is passing;
 - the FIPS DRBG is instantiated;
 - the PQC provider self-test passed.
 

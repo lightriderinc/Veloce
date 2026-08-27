@@ -277,9 +277,15 @@ Value healthValue() {
     v.set("approved_mode", approved);
     v.set("fips_module_status", g_agent.fips.moduleStatus());
     Value entropy = Value::object();
-    entropy.set("source", "wolfEntropy (SP 800-90B, ESV)");
+    entropy.set("source",
+                "lightrider-local (OS kernel entropy + RCT/APT verification)");
     entropy.set("healthy", g_agent.startup.entropyOk && g_agent.fips.ok());
-    entropy.set("fail_mode", "fail-closed (nofallback)");
+    entropy.set("fail_mode", "fail-closed (seed callback)");
+    entropy.set("seed_blocks_verified",
+                static_cast<int64_t>(veloce::FipsCore::seedBlocksVerified()));
+    entropy.set("seed_health_failures",
+                static_cast<int64_t>(veloce::FipsCore::seedHealthFailures()));
+    entropy.set("last_seed_unix", veloce::FipsCore::lastSeedUnix());
     v.set("entropy", std::move(entropy));
     v.set("drbg", g_agent.startup.drbgOk && g_agent.fips.ok()
                       ? "instantiated (SP 800-90A Hash_DRBG, 256-bit)"
@@ -336,10 +342,14 @@ Value validationStatusValue() {
 
     Value ent = Value::object();
     ent.set("item", "entropy_source");
-    ent.set("name", "wolfEntropy");
-    ent.set("esv", "SP 800-90B ESV-certified source; certificate number and "
-                   "OE applicability: vendor confirmation pending");
-    ent.set("credited", true);
+    ent.set("name", "lightrider-local");
+    ent.set("esv_certified", false);
+    ent.set("verified_local", true);
+    ent.set("note", "OS kernel entropy via registered seed callback "
+                    "(wc_SetSeed_Cb); no ESV certificate exists for module "
+                    "v5.2.1; legacy IG 9.3.A applies (wolfSSL confirmation "
+                    "2026-08-27); Lightrider RCT/APT verification on every "
+                    "seed block is engineering assurance, not an ESV credit");
     ent.set("health", g_agent.startup.entropyOk && g_agent.fips.ok()
                           ? "RCT + APT passing"
                           : "failed (fail-closed)");
@@ -365,17 +375,18 @@ Value validationStatusValue() {
     mix.set("item", "cloud_entropy_mixin");
     mix.set("state", g_agent.ems.entropyMixin ? "on" : "off");
     mix.set("credited", false);
-    mix.set("note", "SP 800-90A additional input; never the seed; local "
-                    "ESV source remains the sole credited source");
+    mix.set("note", "SP 800-90A additional input; never the seed; the local "
+                    "verified provider remains the sole seed source");
     items.push(std::move(mix));
 
     Value oe = Value::object();
     oe.set("item", "operational_environment");
     oe.set("environment",
            g_agent.fipsRecord.getString("operating_environment", ""));
-    oe.set("note", "cert #4718 tested OEs include Windows 11 Pro x86-64 and "
-                   "Linux x86-64 distributions; exact OE match: vendor "
-                   "confirmation pending");
+    oe.set("note", "cert #4718 tested OEs are Linux/Android/RTOS per the "
+                   "published SP; Windows 11 Pro/i7-1260P and Azure Linux "
+                   "OEs are tested and awaiting publication (wolfSSL "
+                   "2026-08-27); exact-OE claims follow the published SP");
     items.push(std::move(oe));
 
     Value v = Value::object();
@@ -466,7 +477,8 @@ Value cbomCycloneDx() {
 
     Value ent = Value::object();
     ent.set("type", "cryptographic-asset");
-    ent.set("name", "wolfEntropy (SP 800-90B ESV source)");
+    ent.set("name",
+            "Lightrider local entropy provider (OS kernel + RCT/APT)");
     Value entProps = Value::object();
     entProps.set("assetType", "related-crypto-material");
     ent.set("cryptoProperties", std::move(entProps));
@@ -617,10 +629,21 @@ bool dispatch(const std::string& op, const Value& params, Value& result,
         result = Value::object();
         Value arr = Value::array();
         Value w = Value::object();
-        w.set("name", "wolfEntropy");
-        w.set("type", "software (memory-access timing jitter)");
-        w.set("esv_certified", true);
+        w.set("name", "lightrider-local");
+        w.set("type", "OS kernel entropy + Lightrider RCT/APT verification");
+        w.set("esv_certified", false);
+        w.set("verified_local", true);
         w.set("credited", true);
+        w.set("drbg", "SP 800-90A Hash_DRBG (SHA-256), 256-bit strength");
+        w.set("health_tests", "RCT (cutoff 31) + APT (325/512), "
+                              "startup + continuous, fail-closed");
+        w.set("seed_blocks_verified",
+              static_cast<int64_t>(veloce::FipsCore::seedBlocksVerified()));
+        w.set("seed_bytes_verified",
+              static_cast<int64_t>(veloce::FipsCore::seedBytesVerified()));
+        w.set("seed_health_failures",
+              static_cast<int64_t>(veloce::FipsCore::seedHealthFailures()));
+        w.set("last_seed_unix", veloce::FipsCore::lastSeedUnix());
         w.set("health", g_agent.startup.entropyOk && g_agent.fips.ok()
                             ? "ok" : "failed");
         arr.push(std::move(w));
@@ -658,7 +681,7 @@ bool dispatch(const std::string& op, const Value& params, Value& result,
         result.set("casts", casts ? "pass" : "fail: " + err);
         if (casts) g_agent.startup.castsPassed = true;
         std::string edetail;
-        bool eok = g_agent.fips.entropyOnDemandTest(edetail);
+        bool eok = g_agent.fips.entropySelfTest(edetail);
         result.set("entropy_health", eok ? "pass: " + edetail
                                          : "fail: " + edetail);
         std::string perr;
@@ -1016,8 +1039,9 @@ bool peerAuthorized(ConnectionHandle fd) {
 void printBanner(bool quiet) {
     std::string status = std::string("FIPS 140-3 ") +
         g_agent.fipsRecord.getString("fips_certificate", "#4718") +
-        " | ESV entropy: " +
-        (g_agent.startup.entropyOk && g_agent.fips.ok() ? "OK" : "FAILED") +
+        " | entropy: " +
+        (g_agent.startup.entropyOk && g_agent.fips.ok() ? "verified (local)"
+                                                        : "FAILED") +
         " | approved mode: " + (g_agent.approvedMode() ? "on" : "off");
     std::string line1 = std::string("Lightrider Inc -- Veloce PQC SDK v") +
                         kAgentVersion;

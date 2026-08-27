@@ -1,0 +1,156 @@
+\documentclass[10pt]{article}
+\usepackage[letterpaper,margin=1in]{geometry}
+\usepackage{lmodern}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage{enumitem}
+\setlist{nosep,leftmargin=1.4em}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\definecolor{lrblue}{RGB}{22,80,145}
+\usepackage{titlesec}
+\titleformat{\section}{\large\bfseries\sffamily\color{lrblue}}{\thesection}{0.8em}{}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\sffamily Veloce: wolfSSL Response and Next Steps}
+\fancyhead[R]{\small\sffamily Lightrider Inc (Confidential)}
+\fancyfoot[C]{\small\thepage}
+\newcommand{\code}[1]{\texttt{\small #1}}
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+
+\begin{document}
+
+{\LARGE\sffamily\bfseries Veloce and wolfSSL}\\[0.2em]
+{\large\sffamily Status, response, and next steps. August 27, 2026. Reference: plan/veloce-engineering-guide.pdf v0.3.}
+
+\section{Where each platform stands}
+
+\begin{small}
+\begin{tabularx}{\textwidth}{@{}lL@{}}
+\toprule
+\textbf{Platform} & \textbf{Status} \\
+\midrule
+Linux x86-64 & Complete. Agent, SDK, CLI, qSearch, desktop UI with entropy page,
+  45 gate tests green, pre-release archive \code{veloce-1.0.0-rc1-linux-x86\_64}
+  built. Entropy is the Lightrider seed callback (OS kernel entropy, RCT/APT
+  verified, fail-closed). The running machine is not a listed \#4718 OE; status
+  is reported honestly and the Azure Linux OE (UG 2.2.38, OE36) awaits
+  publication. \\
+Windows 11 x86-64 & Source complete (named pipe, restricted DLL loading,
+  service, MSI/ZIP builder, desktop app). Not yet done: build the FIPS DLL on a
+  Windows host per UG 2.2.45 (OE49), build the agent and PQC DLL, run the gate
+  battery natively, sign the MSI. The FIPS claim stays
+  \code{pending\_publication} until the OE appears on the published \#4718
+  security policy. \\
+macOS & Desktop app and packaging (\code{.app}/DMG) work in discovery-only
+  mode. A validated macOS agent is not possible: no wolfCrypt certificate lists
+  any macOS operational environment (the User Guide's 51 OEs contain none).
+  macOS ships as qSearch plus dashboard, with the dashboard honestly showing
+  ``Agent unavailable''. \\
+UI dashboards & Complete: security dashboard, qSearch page, entropy page
+  (streaming specs plus the cloud EMS toggle). The UI performs no cryptography
+  and reports live agent evidence only. \\
+\bottomrule
+\end{tabularx}
+\end{small}
+
+\section{What the received documents settle}
+
+The wolfCrypt v5.2.1 FIPS User Guide (doc v1.3, 2026-03-05) and the Windows
+\code{user\_settings.h} answer most of our open questions:
+
+\begin{enumerate}
+  \item \textbf{Our Windows OE is already in the User Guide.} Section 2.2.45
+        (OE49) documents Windows 11 Pro on Lenovo ThinkPad T14 with Intel
+        i7-1260P, built with the supplied \code{user\_settings.h}
+        (\code{HAVE\_FIPS\_VERSION 5 / MINOR 2 / PATCH 1}). Only certificate
+        publication remains.
+  \item \textbf{Toolchain pin.} OE49 lists Visual Studio 2026 as compiler,
+        linker, assembler, and debugger. The UG states a module compiled with a
+        toolchain not on the list is not FIPS validated until retested. Our
+        Windows build must use Visual Studio 2026.
+  \item \textbf{No PAA on OE49.} The UG marks OE49 ``no PAA only'' and warns
+        PAA is not allowed without retesting. We build without
+        \code{WOLFSSL\_AESNI}.
+  \item \textbf{Windows integrity-hash flow.} The fips-hash.sh equivalent on
+        Windows is documented: build, run once, read the hash from the FIPS
+        callback, set it via \code{WOLFCRYPT\_FIPS\_CORE\_HASH\_VALUE} or
+        \code{verifyCore[]}, rebuild.
+  \item \textbf{Our entropy design is the documented pattern.} UG section 6
+        instructs developers without RDSEED to provide their own seeding
+        function from a strong entropy source, and the API table describes
+        \code{wc\_SetSeed\_Cb\_fips} as the hook for an external entropy source
+        that ``may be SP800-90B or may not''. The Lightrider provider (OS
+        kernel entropy plus RCT/APT verification, fail-closed) fits this
+        exactly, under the caveat ``no assurance of the minimum strength of
+        generated keys''.
+  \item \textbf{Azure Linux recipe.} UG 2.2.38 (OE36) gives the exact
+        configure/make/fips-hash flow and toolchain (gcc 13.3) for the tested
+        cloud OE.
+\end{enumerate}
+
+\section{Our response to wolfSSL}
+
+\begin{quote}
+\small
+Subject: RE: FIPS \#4718: User Guide received, remaining items
+
+Thank you. The v5.2.1 User Guide and Windows \code{user\_settings.h} answer our
+build questions, including the OE49 recipe, the Visual Studio 2026 toolchain,
+the no-PAA requirement, and the Windows integrity-hash flow. Four items remain:
+
+1. Publication. Please notify us when OE49 (Windows 11 Pro, i7-1260P) and OE36
+(Azure Ubuntu 24.04 on Docker) appear on the published \#4718 certificate and
+security policy, and share any expected CMVP timeframe. Until then we ship
+Windows with validation status ``pending publication''.
+
+2. Entropy confirmation. Per UG section 6 we register our own generate-seed
+callback through \code{wc\_SetSeed\_Cb}: it reads OS kernel entropy
+(\code{getrandom} on Linux, \code{BCryptGenRandom} on Windows) and applies our
+own SP 800-90B-style repetition-count and adaptive-proportion checks before
+returning, failing closed. We document it as the CO-registered external seed
+source under legacy IG 9.3.A with no ESV claim. Please confirm this raises no
+concern.
+
+3. Authenticode. Does signing the DLL or the installer interact in any way with
+the in-core integrity check we should plan for?
+
+4. Order Form. We would like to paper: (a) Veloce as the named Program under
+section 3 (a PQC SDK exposing crypto services through a local agent, not a
+linkable crypto library); (b) commercial coverage for compiling the
+ML-KEM/ML-DSA sources from the public v5.9.2-stable tree as a separate
+non-FIPS provider, since the commercial bundle strips SHAKE; and (c) budget and
+timing for the FIPS v7 PQ-FS upgrade.
+\end{quote}
+
+\section{Next steps}
+
+\begin{small}
+\begin{tabularx}{\textwidth}{@{}lLl@{}}
+\toprule
+\textbf{Owner} & \textbf{Action} & \textbf{Gate} \\
+\midrule
+Lightrider & Provision a Windows 11 host with Visual Studio 2026; build the
+  FIPS DLL per UG 2.2.45 (no PAA), run the integrity-hash flow, record the DLL
+  SHA-256 into the build record. & G1 \\
+Lightrider & Build \code{veloce-agent.exe} and the PQC DLL; run the gate
+  battery on Windows; package the signed MSI with the desktop app
+  (\code{build\_desktop\_release.py --platform windows}). & G1/G4 \\
+Lightrider & Stage the Azure OE36 build (gcc 13.3, Docker on Ubuntu 24.04) as
+  the first exactly-matching published OE for Linux deployments. & G4 \\
+Lightrider & Ship macOS as discovery-only; revisit only if a macOS OE ever
+  appears on a wolfCrypt certificate. & n/a \\
+Lightrider & Complete the hybrid TLS sample pair (autotools TLS+MLKEM build). & G3 \\
+Platform team & Fix \code{ems-egress/src/stream.rs} (corrupted at HEAD, does
+  not compile) before S3 streaming integration. & S3 \\
+wolfSSL & Notify on \#4718 SP publication of OE49 and OE36; answer items 2--4
+  above. & claim flip \\
+\bottomrule
+\end{tabularx}
+\end{small}
+
+\end{document}

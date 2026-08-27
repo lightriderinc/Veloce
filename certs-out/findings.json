@@ -4,7 +4,7 @@
   "tool_version": "1.0.0",
   "vendor": "Lightrider Inc",
   "scan_root": "/etc/ssl/certs",
-  "generated_unix": 1786554562,
+  "generated_unix": 1786991883,
   "files_scanned": 245,
   "findings": [
     {

@@ -99,10 +99,11 @@
 \toprule
 Organization & Lightrider Inc \\
 Product & Veloce: cryptographic search SDK + FIPS entropy generator \\
-Version & 0.2 (implementation-aligned review) \\
-Date & August 10, 2026 \\
+Version & 0.3 (vendor-response aligned) \\
+Date & August 27, 2026 \\
 Prepared for & Martin Guo, Quantum Applied Scientist \\
-Status & Linux reference implementation complete; Windows/macOS work planned \\
+Status & Linux reference implementation complete; Windows FIPS track unblocked by
+  wolfSSL confirmations of 2026-08-27 \\
 \bottomrule
 \end{tabular}
 \vfill
@@ -113,12 +114,17 @@ Status & Linux reference implementation complete; Windows/macOS work planned \\
 certificates, network) that produces a Cryptography Bill of Materials (CBOM); and the
 \textbf{Veloce crypto core}, a locally deployed
 entropy generator and PQC service built on the wolfCrypt FIPS~140-3 module
-(certificate \#4718) seeded exclusively by wolfSSL's ESV-certified wolfEntropy source,
-exposing ML-KEM, ML-DSA, and hybrid TLS~1.3 through a Python SDK. Cloud connectivity to
-the Lightrider EMS is optional, off by default, and includes a user-controllable cloud-entropy
-mix-in that never weakens the local FIPS entropy claim.
-The checked-in implementation is currently Linux x86-64; native Windows and macOS
-deliverables remain separate platform tracks in this same repository.
+(certificate \#4718) seeded by the Lightrider local entropy provider: a custom
+generate-seed callback drawing OS kernel entropy, verified in-process by Lightrider
+SP~800-90B-style health tests, fail-closed. The module makes no entropy claim and falls
+under legacy IG~9.3.A (vendor-confirmed 2026-08-27), so the external documented seed
+source is the compliant design. The SDK exposes ML-KEM, ML-DSA, and hybrid TLS~1.3
+through a Python SDK and a desktop UI. Cloud connectivity to the Lightrider EMS is
+optional, off by default, and includes a user-controllable cloud-entropy mix-in that
+never weakens the local FIPS entropy claim.
+The checked-in implementation is currently Linux x86-64; the Windows FIPS DLL build path
+is vendor-confirmed and awaits only the published \#4718 OE update for the validated
+deployment claim.
 \end{minipage}
 \vspace{2em}
 \end{titlepage}
@@ -141,14 +147,34 @@ API and deliverables, Section~\ref{sec:security} the security controls,
 Section~\ref{sec:gates} the acceptance tests, Section~\ref{sec:schedule} the build order
 with a component-to-repository map, and the appendices the exact build commands.
 
-\textbf{Implementation snapshot (2026-08-10).} The checked-in Linux implementation
-contains the C++ agent, pure-Python client, Rust CLI, native Rust qSearch source/system
-scanner, CBOM outputs, and 33-test gate battery. The current source scanner is a
-single-threaded recursive literal-pattern engine, not yet the parallel collector design
-described as the target below. Hybrid-TLS policy selection exists, but the TLS data plane,
-native Windows/macOS transports, native packages, dependency/PCAP collectors, and EMS
-network client are not implemented. This distinction is normative: target requirements
-must not be reported as delivered functionality.
+\textbf{Implementation snapshot (2026-08-27).} The checked-in implementation contains
+the C++ agent, pure-Python client, Rust CLI, native Rust qSearch source/system scanner,
+CBOM outputs, the Veloce Desktop application (local web UI: security dashboard +
+click-to-scan qSearch), Windows/macOS desktop build paths, and a 42-test gate battery.
+The current source scanner is a single-threaded recursive literal-pattern engine, not yet
+the parallel collector design described as the target below. Hybrid-TLS policy selection
+exists, but the TLS data plane, native Windows FIPS runtime validation, dependency/PCAP
+collectors, and the EMS network client are not implemented. This distinction is
+normative: target requirements must not be reported as delivered functionality.
+
+\textbf{Vendor response snapshot (2026-08-27).} wolfSSL confirmed in writing:
+(1) Windows FIPS supports \emph{DLL builds only} (the bundled README's static-library
+statement is a legacy error, correction in wolfSSL PR \#11142); build configurations are
+\code{DLL Debug | x64} / \code{DLL Release | x64} in \code{WIN10/wolfssl-fips.sln}.
+(2) The exact v5.2.1 \code{user\_settings.h} is supplied
+(\code{HAVE\_FIPS\_VERSION\_MAJOR 5, MINOR 2, PATCH 1}).
+(3) CAVP/CMVP testing for the Windows 11 Pro / Intel i7-1260P (Lenovo ThinkPad T14) OE
+and an Azure Linux OE (Ubuntu 24.04 on Docker 28.5 / Hyper-V, Xeon Platinum 8272CL) is
+\emph{completed, awaiting publication} on certificate \#4718 and its security policy.
+(4) The module makes no entropy claim; the CO registers a custom generate-seed callback
+via \code{wc\_SetSeed\_Cb()} (wolfSSL FIPS FAQ \S2), and the module falls under
+\emph{legacy} IG~9.3.A (validated before 2026-01-01), exempt from the current ESV
+verbiage. (5) wolfEntropy \emph{was never tested with v5.2.1} and wolfSSL recommends not
+using it with the legacy module; ESV \#E335 belongs to the separate v6.0.0 module, and
+the v5.2.4 upgrade path is roughly a year out as a new certificate. (6) The wolfCrypt
+FIPS User Guide / COGM is now on hand and governs allowed build settings. These answers
+close the S0 vendor items; the only remaining external dependency for the Windows
+validated-deployment claim is CMVP publication of the tested OE rows.
 
 \subsection*{The two pillars}
 \begin{description}[style=nextline]
@@ -161,10 +187,15 @@ must not be reported as delivered functionality.
   classification, CBOM generation, risk scoring, and reporting layers.
   \item[Pillar B: Entropy generator and FIPS crypto core.] A native C++17 agent embedding
   the wolfCrypt FIPS 140-3 validated module (CMVP cert \#4718) whose SP~800-90A Hash\_DRBG
-  is seeded only by wolfSSL's ESV-certified wolfEntropy source (SP~800-90B health tests,
-  fail-closed). The agent provides ML-KEM-768 key establishment and ML-DSA signatures,
-  consumed from a pure-Python SDK over an authenticated local IPC channel. Hybrid TLS 1.3
-  policy selection is present; the sample handshake/data plane remains a G3 deliverable.
+  is seeded only by the Lightrider local entropy provider: a custom generate-seed callback
+  (\code{wc\_SetSeed\_Cb()}, per wolfSSL FIPS FAQ \S2) drawing OS kernel entropy
+  (\code{getrandom()} on Linux, \code{BCryptGenRandom} on Windows) and verifying every
+  seed block in-process with SP~800-90B-style RCT/APT health tests, fail-closed. No ESV
+  certificate is claimed; the module makes no entropy claim and legacy IG~9.3.A applies
+  (vendor-confirmed). The agent provides ML-KEM-768 key establishment and ML-DSA
+  signatures, consumed from a pure-Python SDK over an authenticated local IPC channel.
+  Hybrid TLS 1.3 policy selection is present; the sample handshake/data plane remains a
+  G3 deliverable.
 \end{description}
 
 \subsection*{Technical stack}
@@ -181,12 +212,15 @@ Crypto module & wolfCrypt FIPS 140-3 module v5.2.1, CMVP cert \#4718, dynamicall
   loaded & The guidance mandates a shared library/DLL (no static linking) and the
   purchased bundle carries this exact validated module; autotools
   (\code{-{}-enable-fips=v5}) is its only FIPS-capable build path. \\
-Entropy source & wolfEntropy (ESV), \code{-{}-enable-wolfEntropy=nofallback}, wired via
-  \code{wc\_SetSeed\_Cb()} & The FIPS module itself makes no entropy claim; SP~800-90B
-  compliance therefore requires an external ESV-validated source, which the bundle
-  provides with built-in RCT/APT health tests. V1 entropy is software-only; hardware
-  QRNG (IDQ Quantis) and the Quantropi quantum-entropy service are post-V1
-  integrations. \\
+Entropy source & Lightrider local entropy provider: custom generate-seed callback wired
+  via \code{wc\_SetSeed\_Cb()}, OS kernel entropy + Lightrider RCT/APT verification,
+  fail-closed & The FIPS module itself makes no entropy claim and requires an external
+  seed source (\#4718 SP \S11.1); under legacy IG~9.3.A (vendor-confirmed 2026-08-27) a
+  documented external source is the compliant design. wolfEntropy is \emph{not used}:
+  wolfSSL confirmed it was never tested with v5.2.1 and recommends against it; ESV
+  \#E335 covers only the v6.0.0 module. Verification is engineering assurance, not an
+  ESV credit. V1 entropy is software-only; hardware QRNG (IDQ Quantis) and the Quantropi
+  quantum-entropy service are post-V1 integrations. \\
 PQC provider & ML-KEM / ML-DSA compiled \emph{beside} the FIPS boundary & The v5 FIPS
   build strips SHAKE/XOF from in-boundary SHA-3, so FIPS 203/204 code cannot link inside
   it; reported as \code{pqc\_inside\_fips\_boundary:\ false} until wolfSSL's FIPS v7
@@ -202,9 +236,10 @@ SDK client & Pure Python over local IPC & The guidance mandates a pure-Python IP
   handles. \\
 Cloud entropy & EMS-delivered packets as DRBG \emph{additional input}, default off &
   SP~800-90A permits additional input with zero credited entropy, so cloud entropy can
-  strengthen output without altering the FIPS/ESV claims; the source documents prohibit
+  strengthen output without altering the FIPS claims; the source documents prohibit
   entropy leaving the device, and this design sends none. \\
-Platforms & Linux x86-64 implemented; Windows 11 x86-64 next; macOS separate track &
+Platforms & Linux x86-64 implemented; Windows 11 x86-64 next (FIPS DLL configuration
+  vendor-confirmed; OE publication pending); macOS separate track &
   Platform adapters and release artifacts remain isolated under one repository; no
   unimplemented platform may be advertised as supported. \\
 Licensing & Lightrider commercial EULA wrapping the wolfSSL commercial license & The
@@ -278,14 +313,16 @@ qSearch discovery & Source-code and dependency scanning; certificate and protoco
   other quantum-vulnerable cryptography \\
 CBOM & Automatic CBOM export in JSON, CSV, and CycloneDX; M-23-02 inventory fields;
   executive summary; mapping to the Light Rider CBOM workbook \\
-Entropy & wolfEntropy ESV-certified software entropy source, SP~800-90B health tests,
-  fail-closed seeding/reseeding of the wolfCrypt DRBG \\
+Entropy & Lightrider local entropy provider (OS kernel entropy via custom generate-seed
+  callback), SP~800-90B-style RCT/APT verification of every seed block, fail-closed
+  seeding/reseeding of the wolfCrypt DRBG; live entropy specs surfaced in the SDK, CLI,
+  and desktop UI \\
 PQC services & ML-KEM key generation / encapsulation / decapsulation; ML-DSA signing /
   verification; opaque key handles only \\
 TLS & Hybrid TLS 1.3 (classical + ML-KEM group) sample client and server, policy-profile
   driven (\code{LIGHTRIDER\_PQC\_TRANSITION}) \\
 FIPS & Startup + conditional self-tests, approved-mode status, per-item validation-status
-  reporting (module cert, ESV cert, PQC status) \\
+  reporting (module cert, entropy verification status, PQC status) \\
 EMS (optional) & Telemetry/CBOM synchronization; user-controllable cloud-entropy mix-in;
   disabled by default with a zero-network-traffic guarantee \\
 Platforms & Windows 11 x86-64 (MSI + Windows service) and Linux x86-64
@@ -308,7 +345,9 @@ macOS. \emph{Do not expand V1 scope without approval.}
 \midrule
 FIPS 140-3 & Module validation & wolfCrypt module v5.2.1, CMVP cert \#4718 \\
 SP 800-90A & DRBG & Hash\_DRBG (SHA-256), 256-bit strength \\
-SP 800-90B / ESV & Entropy source & wolfEntropy: RCT + APT health tests, ESV certificate \\
+SP 800-90B & Entropy verification & Lightrider RCT + APT health tests on the OS seed
+  stream (engineering assurance; no ESV certificate exists for v5.2.1, legacy IG~9.3.A
+  applies) \\
 FIPS 203 / 204 & PQC algorithms & ML-KEM-768 (default), ML-DSA \\
 TLS 1.3 (RFC 8446) & Protocol & Hybrid groups, e.g.\ \code{X25519MLKEM768} \\
 CycloneDX CBOM & Inventory format & qSearch + SDK CBOM export \\
@@ -357,12 +396,12 @@ when enabled.
     {\icShield\ wolfCrypt FIPS module\\\scriptsize cert \#4718: Hash\_DRBG, AES, SHA,\\\scriptsize RSA, ECC, DH, KDFs};
   \node[box, minimum width=10em] (pqc) at (6.2,-6.4)
     {\icAtom\ PQC provider\\\scriptsize ML-KEM / ML-DSA,\\\scriptsize beside boundary};
-  \node[box, fill=fipsgold!12, minimum width=13em] (ent) at (-0.1,-8.5)
-    {\icWave\ wolfEntropy ESV source\\\scriptsize SP 800-90B RCT + APT, fail-closed};
+  \node[box, minimum width=13em] (ent) at (-0.1,-8.5)
+    {\icWave\ Lightrider entropy provider\\\scriptsize OS kernel entropy + RCT/APT verification, fail-closed};
 
   % --- FIPS boundary ---
-  \node[draw=fipsgold, dashed, thick, rounded corners=3pt, fit=(wc)(ent), inner sep=5pt,
-        label={[fipsgold, font=\scriptsize\sffamily]below:FIPS 140-3 + ESV validated boundary}] {};
+  \node[draw=fipsgold, dashed, thick, rounded corners=3pt, fit=(wc), inner sep=5pt,
+        label={[fipsgold, font=\scriptsize\sffamily]right:FIPS 140-3 validated boundary (cert \#4718)}] {};
 
   % --- flows (orthogonal, no crossings) ---
   \draw[arrow] (py.south)  -- (py.south  |- ipc.north);
@@ -390,7 +429,9 @@ Veloce Agent & C++17 & wolfCrypt lifecycle, entropy, keys (opaque handles), poli
   profiles, FIPS self-tests, validation status, CBOM records, EMS client, diagnostics. \\
 wolfCrypt module & C & FIPS 140-3 approved algorithms + Hash\_DRBG (dynamic library;
   never statically linked; protected files never modified). \\
-wolfEntropy & C & ESV-certified noise source + conditioning + health tests. \\
+Lightrider entropy provider & C++ (agent) & Custom generate-seed callback: OS kernel
+  entropy acquisition, SP~800-90B-style RCT/APT verification, fail-closed delivery via
+  \code{wc\_SetSeed\_Cb()}; live entropy-spec reporting. \\
 PQC provider & C & ML-KEM / ML-DSA from the wolfSSL tree, compiled beside the FIPS
   boundary (see \ref{sec:pqc-boundary}). \\
 qSearch & Rust & Collector adapters, normalization, correlation, classification, CBOM
@@ -402,7 +443,8 @@ EMS & cloud & Fleet telemetry, CBOM aggregation, policy distribution, cloud-entr
 \end{small}
 
 \textbf{Repository layout:}
-\code{agent/}, \code{python/}, \code{cli/}, \code{qsearch/}, \code{ipc/} (versioned,
+\code{agent/}, \code{python/}, \code{cli/}, \code{desktop/} (local web UI:
+\code{veloce\_desktop.py} + \code{static/}), \code{qsearch/}, \code{ipc/} (versioned,
 length-prefixed message definitions), \code{installer/} (MSI + deb/rpm), \code{tests/}
 (unit, integration, interoperability, security), \code{examples/} (tls-client, tls-server),
 \code{docs/}, \code{cbom/}, \code{vendor/wolfssl/} (licensed source; restricted private
@@ -532,7 +574,7 @@ smaller finding set. Benchmarks and false-positive/blind-spot reporting are rele
 % =====================================================================
 \section{Pillar B: Entropy Generator and FIPS Crypto Core}\label{sec:core}
 
-The crypto core consists of an ESV-certified entropy source feeding a validated DRBG,
+The crypto core consists of a verified local entropy provider feeding a validated DRBG,
 with PQC and TLS services above it. All failure modes are fail-closed.
 
 \subsection{Entropy pipeline}
@@ -542,26 +584,33 @@ with PQC and TLS services above it. All failure modes are fail-closed.
   box/.style={draw, rounded corners=2pt, minimum height=2.4em, minimum width=13em, align=center, fill=white},
   arrow/.style={-{Stealth[length=2mm]}, thick},
   node distance=0.5cm]
-  \node[box, fill=fipsgold!12] (src) {\icWave\ \textbf{wolfEntropy noise source}\\\scriptsize memory-access timing jitter (TRNG)};
-  \node[box, fill=fipsgold!12, below=of src] (cond) {\icShield\ \textbf{Conditioning + health tests}\\\scriptsize SHA3-256 conditioning; SP 800-90B RCT (cutoff 31) + APT (325/512), startup + continuous};
-  \node[box, fill=fipsgold!12, below=of cond] (drbg) {\icGear\ \textbf{wolfCrypt Hash\_DRBG (SHA-256)}\\\scriptsize 256-bit strength; 64-byte seed (scale factor 2); reseed interval $10^6$};
+  \node[box] (src) {\icWave\ \textbf{OS kernel entropy}\\\scriptsize \code{getrandom()} on Linux; \code{BCryptGenRandom} on Windows};
+  \node[box, below=of src] (cond) {\icShield\ \textbf{Lightrider entropy verification}\\\scriptsize SP 800-90B-style RCT (cutoff 31) + APT (325/512) on every seed block, startup + continuous};
+  \node[box, fill=fipsgold!12, below=of cond] (drbg) {\icGear\ \textbf{wolfCrypt Hash\_DRBG (SHA-256)}\\\scriptsize 256-bit strength; 64-byte seed (scale factor 2); reseed interval $10^6$; cert \#4718};
   \node[box, below=of drbg] (out) {\icLock\ \textbf{Veloce random-bit output + crypto services}\\\scriptsize ML-KEM, ML-DSA, TLS 1.3 keys, nonces};
-  \node[box, right=1.0cm of drbg, minimum width=9em, fill=lrgray!8] (ems) {\icCloud\ EMS cloud entropy\\\scriptsize optional \emph{additional input}\\\scriptsize never the seed\\\scriptsize Quantropi upstream, post-V1};
-  \node[box, right=1.0cm of src, minimum width=9em, fill=lrgray!8] (qrng) {\icAtom\ Hardware QRNG (IDQ Quantis)\\\scriptsize alternate ESV seed source\\\scriptsize post-V1, Quantum Light};
+  \node[box, right=1.0cm of drbg, minimum width=9em, fill=lrgray!8] (ems) {\icCloud\ EMS cloud entropy\\\scriptsize optional \emph{additional input}\\\scriptsize never the seed\\\scriptsize signed receipts, Quantropi upstream};
+  \node[box, right=1.0cm of src, minimum width=9em, fill=lrgray!8] (qrng) {\icAtom\ Hardware QRNG (IDQ Quantis)\\\scriptsize alternate local seed source\\\scriptsize post-V1, Quantum Light};
   \draw[arrow] (src) -- (cond);
-  \draw[arrow] (cond) -- node[right]{\scriptsize \code{wc\_SetSeed\_Cb()}} (drbg);
+  \draw[arrow] (cond) -- node[right]{\scriptsize custom generate-seed via \code{wc\_SetSeed\_Cb()}} (drbg);
   \draw[arrow] (drbg) -- (out);
   \draw[arrow, dashed, lrgray] (ems) -- (drbg);
   \draw[arrow, dashed, lrgray] (qrng) -- (src.east);
 \end{tikzpicture}
 \end{center}
 
-\textbf{Wiring.} The module itself makes no entropy claim. After loading the module and
-checking \code{wolfCrypt\_GetStatus\_fips()}, the implemented agent runs the wolfEntropy
-on-demand health test, registers \code{wc\_GenerateSeed} with
-\code{wc\_SetSeed\_Cb()}, and instantiates the FIPS DRBG with \code{wc\_InitRng()}.
-The build uses \code{-{}-enable-wolfEntropy=nofallback}, so initialization or generation
-fails closed rather than silently falling back to \code{/dev/urandom}. The agent exposes
+\textbf{Wiring.} The module itself makes no entropy claim (\#4718 SP \S11.1,
+vendor-confirmed); its security policy requires the crypto officer to register an
+external seed source. After loading the module and checking
+\code{wolfCrypt\_GetStatus\_fips()}, the agent registers the \emph{Lightrider
+generate-seed callback} with \code{wc\_SetSeed\_Cb()} --- the mechanism wolfSSL's FIPS
+FAQ \S2 prescribes for custom seeding --- and instantiates the FIPS DRBG with
+\code{wc\_InitRng()}. The callback acquires seed material from the OS kernel entropy
+interface, runs the Lightrider RCT/APT verification over every block, and returns it
+only on pass; any acquisition or health-test failure returns an error, and because the
+FIPS build defines \code{WC\_RNG\_SEED\_CB}, the DRBG then refuses to instantiate or
+reseed --- there is no silent fallback path. wolfEntropy is not used: wolfSSL confirmed
+on 2026-08-27 that it was never tested with module v5.2.1 and recommends against pairing
+it with the legacy module. The agent exposes
 \code{FipsCore::randomBytes()} as a callback to the separate PQC provider: ML-KEM keygen
 requests 64 bytes; ML-KEM encapsulation, ML-DSA keygen, and hedged ML-DSA signing request
 32 bytes each. Applications never supply or retrieve raw entropy.
@@ -572,17 +621,27 @@ encapsulation, and TLS handshakes are refused; \code{health()} and the validatio
 API report the failure; an event-log entry and (if enabled) an EMS alert are emitted.
 There is no API that returns raw entropy, and entropy is never sent to EMS.
 
-\textbf{ESV evidence.} \code{wc\_Entropy\_GetRawEntropy()} provides raw noise samples for
-SP~800-90B assessment. \dep{Confirm with wolfSSL the ESV certificate number and its
-applicability to our exact Windows 11 x86-64 and Linux x86-64 operating environments;
-entropy validations are OE-bound.}
+\textbf{Certification position (resolved 2026-08-27).} No ESV certificate applies to
+this module and none is claimed: wolfSSL confirmed ESV \#E335 belongs to their separate
+v6.0.0 module (currently ``Pending Resubmission''), that wolfEntropy was never tested
+with v5.2.1, and that v5.2.4 --- the first version designed for ESV-mode seeding --- is
+about a year from certification as a \emph{new} certificate. Module \#4718 was validated
+before 2026-01-01 and therefore falls under \emph{legacy} IG~9.3.A, which permits an
+external documented seed source without an attached ESV validation. Veloce's compliance
+position is exactly that: the module's own certificate plus a documented, health-tested
+external seed source, reported honestly in \code{validation\_status()} as
+\code{entropy\_esv\_certified:\ false}, \code{entropy\_verified\_local:\ true}. The
+Lightrider RCT/APT layer is engineering assurance and is never represented as an ESV
+credit. Per wolfSSL: ``testing is the only confidence when it comes to FIPS''; the
+verification layer plus the gate battery is that testing.
 
-\textbf{Entropy providers.} V1 ships exactly one credited entropy provider: the
-wolfEntropy software source (ESV-verified). No hardware entropy is integrated in V1.
-Two quantum-entropy integrations follow post-V1: the \textbf{Quantropi} quantum-entropy
-service (QiSpace SEQUR), delivered over the network through the EMS cloud-entropy
-channel as DRBG additional input (Section~\ref{sec:cloud-entropy}); and the IDQ Quantis
-QRNG as a local alternate ESV seed source for Quantum Light deployments.
+\textbf{Entropy providers.} V1 ships exactly one seed provider: the Lightrider local
+entropy provider (OS kernel entropy, verified per block). No hardware entropy is
+integrated in V1. Two quantum-entropy integrations follow post-V1: the
+\textbf{Quantropi} quantum-entropy service (QiSpace SEQUR), delivered over the network
+through the EMS cloud-entropy channel as DRBG additional input
+(Section~\ref{sec:cloud-entropy}); and the IDQ Quantis QRNG as a local alternate seed
+source for Quantum Light deployments.
 \code{list\_entropy\_providers()} enumerates providers, so new sources are added without
 API change.
 
@@ -601,25 +660,37 @@ API change.
         \code{wc\_RunAllCast\_fips()}, and status is read from
         \code{wolfCrypt\_GetStatus\_fips()}.
   \item Record for every build: DLL/so hash, source version, build settings, compiler,
-        FIPS certificate, ESV certificate, operating environment (feeds the CBOM).
-  \item The licensed source package does include Windows FIPS build material:
-        \code{IDE/WIN10/wolfssl-fips.sln}, \code{wolfssl-fips.vcxproj}, and
-        \code{user\_settings.h}. Its README says the supplied library is currently built
-        statically and documents special in-core integrity linker settings.
-  \item As checked on 2026-08-10, wolfSSL lists \textbf{Windows 10 Enterprise on Intel
-        Core i5-1345U} (with and without PAA) and \textbf{Windows 11 Pro on Intel Core
-        i7-1260P @ 2.10 GHz} as \emph{pending operational environments}. NIST's CAVP
-        record A4308 already enumerates these algorithm-test OEs, but the current CMVP
-        certificate \#4718 security policy does not list them in its approved tested-OE
-        table. CAVP algorithm testing and a pending OE must not be represented as current
-        CMVP module/OE approval. The earlier i7-1255U statement referred to a separate
-        future module and was incorrect for this claim.
+        FIPS certificate, entropy provider status, operating environment (feeds the
+        CBOM).
+  \item Windows FIPS build (vendor-confirmed 2026-08-27): \textbf{only DLL builds are
+        supported with FIPS}. The bundled README's static-library statement is a legacy
+        copy/paste error; wolfSSL is issuing a correction
+        (\code{wolfSSL/wolfssl} PR \#11142). Build \code{IDE/WIN10/wolfssl-fips.sln} in
+        Visual Studio with configuration \code{DLL Debug | x64} or
+        \code{DLL Release | x64}, using the vendor-supplied v5.2.1
+        \code{user\_settings.h} (\code{HAVE\_FIPS\_VERSION\_MAJOR 5},
+        \code{HAVE\_FIPS\_VERSION\_MINOR 2}, \code{HAVE\_FIPS\_VERSION\_PATCH 1}). The
+        DLL-only rule matches Veloce's dynamic-loading design exactly.
+  \item OE status (vendor-confirmed 2026-08-27): CAVP/CMVP testing is \emph{completed,
+        awaiting publication} on certificate \#4718 and its security policy for
+        \textbf{Windows 11 Pro on Intel Core i7-1260P @ 2.10 GHz (Lenovo ThinkPad T14)}
+        and for \textbf{Ubuntu 24.04 on Docker 28.5 over Hyper-V (Xeon Platinum 8272CL,
+        Azure Standard\_D2s\_v4)}. CAVP validation 36918 records the algorithm testing.
+        A completed-but-unpublished OE must not be represented as current CMVP module/OE
+        approval; \code{validation\_status()} reports the Windows OE as
+        \code{pending\_publication} until the SP update lands.
+  \item Porting beyond the tested OEs: wolfSSL does not issue vendor affirmations. At
+        FIPS 140-3 Level 1, CMVP Management Manual \S7.9.2 permits \emph{user
+        affirmation} to a compatible operating system once a matching OS row is on the
+        certificate; the affirmation is keyed to the OS, not the CPU, and the risk sits
+        with the affirmer. wolfSSL recommends retesting whenever CPU or OS changes.
   \item The CMVP entry carries the caveat ``no assurance of the minimum strength of
-        generated SSPs''; entropy assurance therefore depends on the separately assessed
-        entropy source. \dep{Obtain wolfSSL confirmation when the two Windows OEs are
-        added to the published \#4718 security policy, plus the approved dynamic-library
-        configuration and exact v5.2.1 \code{user\_settings.h}. Until then Windows is a
-        development target, not a Veloce validated deployment claim.}
+        generated SSPs''; entropy assurance is Veloce's responsibility via the Lightrider
+        entropy provider (Section~\ref{sec:core}). The wolfCrypt FIPS User Guide / COGM
+        (received 2026-08-27) governs which build settings are permitted; Veloce's build
+        flags are checked against it at G0. \dep{Single remaining item: notify when the
+        two tested OEs appear on the published \#4718 security policy; only then does the
+        Windows validated-deployment claim switch on.}
 \end{itemize}
 
 \subsection{PQC provider outside the FIPS boundary}\label{sec:pqc-boundary}
@@ -631,7 +702,8 @@ drawing all randomness from the FIPS DRBG via the \code{*WithRandom} APIs.
 
 \begin{itemize}
   \item Validation status reports each fact separately (no generic \code{FIPS=True}):
-        module validated + cert number; entropy ESV validated + cert number; PQC algorithm
+        module validated + cert number; \code{entropy\_esv\_certified:\ false} +
+        \code{entropy\_verified\_local:\ true}; PQC algorithm
         and its validation status; \code{pqc\_inside\_fips\_boundary:\ false}; OE;
         self-test results. Values come from the installed module, never hardcoded.
   \item \dep{Track wolfSSL's FIPS v7 ``PQ-FS'' submission (boundary wrappers for ML-KEM,
@@ -690,10 +762,27 @@ EMS disabled; this default is enforced by a zero-network-traffic test.
 \end{tabularx}
 \end{small}
 
-Transport: mTLS (hybrid TLS 1.3 once EMS supports it), device enrollment issuing a
-per-device identity; the agent is the only component that opens the connection.
-\open{EMS endpoint contract (REST vs gRPC), enrollment flow, and payload schemas are
-designed at stage S3 jointly with the platform team.}
+\textbf{Endpoint contract (resolved from \code{light-rider-platform}).} The EMS
+data plane is the \code{ems-egress} service: REST on \code{:7081}
+(\code{POST /v1/entropy/request}, 1--65\,536 bytes per call; \code{GET /v1/sources};
+\code{GET /v1/entropy/pools}; \code{GET /v1/pubkey};
+\code{GET /v1/receipts/:request\_id}), a WebSocket stream
+(\code{GET /v1/entropy/stream}) with parameters \code{policy} and
+\code{bytes\_per\_tick} (default 64, clamped 1--4096) on a fixed 100\,ms tick, and a
+QUIC lane (\code{:7082}, ALPN \code{lr-qstream}) that already negotiates hybrid
+\code{X25519MLKEM768}. Wire schemas are fixed by
+\code{proto/entropy.proto} (\code{EntropyRequest/Response}, \code{EntropyReceipt},
+\code{HealthSnapshot}, \code{SourceSelectionPolicy}). Every response carries a
+\emph{signed receipt} (Ed25519 today; ML-DSA-65 / MASQ-DS paths exist) containing the
+contributing sources, pool, extractor algorithm, SP~800-90B health snapshot (RCT/APT
+pass, bit balance, Shannon estimate, chi-square p-value, quality score 0--100),
+DRBG algorithm and reseed id, and a nanosecond timestamp; \code{raw\_entropy\_stored}
+is always false. Authentication is a per-device Bearer API key issued by the
+\code{ems-admin} control plane; entitlement tiers (Free/Pro/Enterprise) gate the pools
+(\code{pool\_fastest}, \code{pool\_highest\_quality}, \code{pool\_quantum\_verified}).
+The agent is the only Veloce component that opens the connection, verifies the receipt
+signature against the pinned EMS public key, and enforces freshness before any use.
+mTLS device enrollment remains the target transport hardening once EMS supports it.
 
 \subsection{User-controllable cloud entropy (V1 addition)}\label{sec:cloud-entropy}
 EMS may deliver entropy \emph{to} devices; devices never send entropy to EMS.
@@ -704,8 +793,9 @@ EMS may deliver entropy \emph{to} devices; devices never send entropy to EMS.
         freshness-checked entropy packet from EMS over mTLS.
   \item The packet is injected into the wolfCrypt DRBG as SP~800-90A
         \emph{additional input} on reseed/generate: it is cryptographically mixed in but
-        contributes \emph{zero} to the credited entropy claim. The local wolfEntropy ESV
-        source remains the sole seed. The FIPS and ESV certificates are unaffected.
+        contributes \emph{zero} to the credited entropy claim. The local Lightrider
+        entropy provider remains the sole seed. The FIPS certificate claims are
+        unaffected.
   \item User control: enable/disable per config or at runtime via the SDK
         (\code{set\_entropy\_mixin(...)}); state is visible in \code{health()},
         \code{list\_entropy\_providers()}, validation status, and the CBOM
@@ -715,8 +805,42 @@ EMS may deliver entropy \emph{to} devices; devices never send entropy to EMS.
         successful mix-in. Cloud entropy can never block or degrade local crypto.
 \end{enumerate}
 Post-V1, the same delivery channel carries quantum-sourced entropy: the Quantropi
-quantum-entropy service (QiSpace SEQUR) as the EMS upstream source, and Quantum Light
+quantum-entropy service (QiSpace SEQUR) as the EMS upstream source (the platform's
+\code{qispace} collector already ingests TQRND in 4096-byte blocks), and Quantum Light
 QPU-derived entropy.
+
+\subsection{Desktop UI: entropy specs and cloud-EMS control (V1 addition)}
+\label{sec:entropy-ui}
+
+The Veloce Desktop application (\code{desktop/}, a local web UI served only on
+\code{127.0.0.1} and backed exclusively by the SDK/IPC --- it never touches wolfCrypt)
+gains an \textbf{Entropy} page beside the existing security dashboard and qSearch pages.
+The page has exactly two jobs:
+
+\begin{enumerate}
+  \item \textbf{Show the live entropy streaming specs.} One table, populated from
+        \code{list\_entropy\_providers()} and \code{health()}, never hardcoded:
+        provider name and type (\code{lightrider-local}, OS kernel interface); DRBG
+        (Hash\_DRBG SHA-256, 256-bit strength, reseed interval); health-test status and
+        counters (RCT cutoff 31, APT 325/512, blocks verified, failures --- always zero
+        or the agent is degraded); last seed/reseed time; and, when the mix-in is on,
+        the last EMS receipt summary (pool, contributing sources, quality score,
+        signature status, freshness age, bytes per tick). Raw entropy values are never
+        displayed or exposed.
+  \item \textbf{One switch: cloud EMS on/off.} A single toggle wired to
+        \code{set\_entropy\_mixin(...)} plus an endpoint/API-key field (stored in the
+        agent config, not the browser). Turning it on never changes the FIPS story ---
+        the panel states in fixed text that cloud entropy is additional input with zero
+        credited entropy and that the local provider remains the sole seed. Turning it
+        off is immediate and is the default state. The toggle state is mirrored in
+        \code{health()}, \code{validation\_status()}, and the CBOM
+        (\code{cloud\_entropy\_mixin:\ on/off}).
+\end{enumerate}
+
+Acceptance (G3): the page renders correct specs with EMS disabled and no network
+traffic; enabling the toggle starts authenticated fetches and updates the receipt
+summary; killing EMS mid-session flips the mix-in status to \code{stale/skipped} while
+all local crypto continues; the toggle round-trips through config restart.
 
 % =====================================================================
 \section{APIs and Deliverables}\label{sec:api}
@@ -750,14 +874,41 @@ operation \code{release\_key()} for agent-side zeroization. V1 also adds
 
 \subsection{Deliverables checklist}
 Python wheel (\code{veloce\_pqc-<ver>-py3-none-any.whl}); native agent; wolfCrypt shared
-library/DLL; qSearch binary; Windows MSI (Authenticode-signed, service registration,
-named-pipe ACLs, EMS-disabled default config, upgrade/repair/uninstall) and Linux
+library/DLL; qSearch binary; Veloce Desktop application (security dashboard, qSearch,
+entropy page per Section~\ref{sec:entropy-ui}); Windows MSI (Authenticode-signed,
+service registration, named-pipe ACLs, EMS-disabled default config,
+upgrade/repair/uninstall) and Linux
 deb/rpm (systemd unit, socket permissions); CLI; API reference; architecture document;
 security guide; FIPS integration guide; entropy-provider guide; SBOM and CBOM; sample TLS
 client/server; test vectors; performance report; known-limitations statement; reseller
 evaluation package; \textbf{Lightrider EULA} and \textbf{third-party notices file}
 (wolfSSL attribution + collector licenses; see Section~\ref{sec:license}); branding
 assets (logo artwork + ASCII banner, Section~\ref{sec:branding}).
+
+\subsection{Client installation experience}\label{sec:install-ux}
+
+A client must reach a working, verified state in one action per platform, with no
+compiler, no configuration file, and no cloud dependency:
+
+\begin{itemize}
+  \item \textbf{Windows:} one Authenticode-signed MSI installs the agent service
+        (\code{VelocePqcAgent}), the wolfCrypt FIPS DLL, the PQC provider DLL, the CLI,
+        and the desktop app; the service starts, runs self-tests, and the desktop app
+        opens on the security dashboard. EMS is disabled by default.
+  \item \textbf{Linux:} one \code{deb}/\code{rpm} installs the same set with a systemd
+        unit; \code{veloce status} or the desktop app confirms the state.
+  \item \textbf{Python:} \code{pip install veloce\_pqc} for the SDK; it requires a
+        running agent and contains no cryptography.
+\end{itemize}
+
+First run always shows the same three facts, from live status only: FIPS module
+(cert \#4718 + self-test result), entropy (local provider verified, fail-closed), and
+PQC provider (beside boundary). Enabling EMS cloud support is one action from the
+desktop app's entropy page (Section~\ref{sec:entropy-ui}) or one config line; it is
+never required for any local function. Every install is reproducible from the release
+manifest: each artifact carries SHA-256 checksums, the SBOM/CBOM, tested OS/CPU, and
+gate report (Section~7.3), and the build recipes in Appendix~\ref{app:build} regenerate
+byte-comparable libraries from the same bundle and flags.
 
 \subsection{Platform-separated development and release layout}
 All operating systems remain in one repository and share protocol, algorithm, report,
@@ -807,7 +958,7 @@ __   _____ _    ___   ___ ___
  \ V /| _|| |_| (_) | (__| _|
   \_/ |___|____\___/ \___|___|
 Lightrider Inc -- Veloce PQC SDK v<version>
-FIPS 140-3 #4718 | ESV entropy: OK | approved mode: on
+FIPS 140-3 #4718 | entropy: verified (local) | approved mode: on
 \end{verbatim}
 \end{quote}
 
@@ -858,8 +1009,10 @@ Service identity & Windows service \code{VelocePqcAgent} under
   \code{NT AUTHORITY\textbackslash LocalService}; Linux systemd unit with a dedicated
   low-privilege user, \code{ProtectSystem=strict}. \dep{Confirm service-account choice
   against wolfSSL operational-environment requirements.} \\
-Certificates reported & FIPS 140-3 cert \#4718 (module v5.2.1) + ESV entropy certificate,
-  each bound to its exact OE; surfaced in validation status and CBOM. \\
+Certificates reported & FIPS 140-3 cert \#4718 (module v5.2.1), bound to its exact OE;
+  entropy reported as \code{entropy\_esv\_certified:\ false},
+  \code{entropy\_verified\_local:\ true} (no ESV certificate exists for this module);
+  surfaced in validation status and CBOM. \\
 Data hygiene & Diagnostic bundles are redaction-tested; CBOM output contains metadata
   only: never keys, seeds, passwords, tokens, or customer plaintext (mirrors the CBOM
   workbook rule). \\
@@ -933,9 +1086,11 @@ Release is gate-based: V1 does not ship until every gate passes on both platform
 \toprule
 \textbf{Gate group} & \textbf{Must pass} \\
 \midrule
-FIPS \& entropy & wolfCrypt test suite; startup + conditional self-tests; wolfEntropy
-  init and health tests; induced entropy-failure and reseed-failure tests (fail-closed
-  verified); DRBG continuous-test behavior. \\
+FIPS \& entropy & wolfCrypt test suite; startup + conditional self-tests; Lightrider
+  seed-callback verification tests (RCT/APT pass and induced-failure); induced
+  entropy-failure and reseed-failure tests (fail-closed verified: DRBG refuses to
+  instantiate/reseed on callback error); seed-path proof (strace/ETW evidence that seeds
+  flow through the registered callback); DRBG continuous-test behavior. \\
 PQC & ML-KEM keygen/encap/decap and ML-DSA sign/verify known-answer tests; fault-harden
   builds; negative tests (corrupted ciphertext/signature). \\
 TLS & Hybrid TLS 1.3 client/server interop; negotiated-group reporting; certificate
@@ -957,8 +1112,10 @@ Packaging \& perf & MSI install/upgrade/repair/uninstall; deb/rpm equivalents;
 \end{small}
 
 \textbf{V1 completion criteria} (condensed): Python SDK talks only through the agent;
-wolfCrypt loaded dynamically; ESV source seeds the DRBG; hybrid TLS works client/server;
-full local operation with EMS disabled; EMS enable exposes no secrets; validation status
+wolfCrypt loaded dynamically; the verified Lightrider seed callback seeds the DRBG
+(proven, not assumed); hybrid TLS works client/server;
+full local operation with EMS disabled; EMS enable exposes no secrets; entropy specs and
+the EMS toggle work in the desktop UI; validation status
 accurate per-item; CBOM export automatic; installers produce securely configured
 services; all gates green.
 
@@ -975,12 +1132,15 @@ path and are opened at S0.
 \textbf{Stage} & \textbf{Target} & \textbf{What to do / exit gate} \\
 \midrule
 S0 & Foundations & Repo + CI skeleton; Linux FIPS build brought up
-  (\code{-{}-enable-fips=v5 -{}-enable-wolfEntropy=nofallback}, fips-hash flow,
-  \code{testwolfcrypt} green); IPC protocol v1 drafted; wolfSSL engagement opened
-  (Windows DLL build configuration, ESV cert applicability, hybrid group, v7 timeline).
+  (\code{-{}-enable-fips=v5}, flags checked against the UG/COGM, fips-hash flow,
+  \code{testwolfcrypt} green); IPC protocol v1 drafted; wolfSSL engagement opened and
+  \emph{answered 2026-08-27} (Windows DLL-only configuration, v5.2.1
+  \code{user\_settings.h}, legacy IG~9.3.A entropy position, no ESV cert for this
+  module, v7 timeline).
   \emph{Gate G0: FIPS module passes self-tests on the Linux reference machine.} \\
 S1 & Entropy + core & Agent skeleton (Linux daemon + Windows
-  service); wolfEntropy wired via \code{wc\_SetSeed\_Cb}; fail-closed state machine;
+  service); Lightrider seed callback wired via \code{wc\_SetSeed\_Cb} (OS kernel entropy
+  + RCT/APT verification); fail-closed state machine; seed-path proof;
   PQC provider built beside boundary + KATs; validation-status API; performance baseline.
   \emph{Gate G1: entropy pipeline + ML-KEM/ML-DSA pass all KATs and failure-injection
   tests on both OSes.} \\
@@ -990,7 +1150,9 @@ S2 & qSearch & Rust engine + finding schema; source/dependency/
   \emph{Gate G2: qSearch detects all planted crypto in the controlled environments and
   reports false positives/blind spots.} (Parallel to S1.) \\
 S3 & TLS + EMS & Hybrid TLS 1.3 samples + interop; Python SDK
-  surface complete; CLI; EMS telemetry client + enrollment; cloud-entropy mix-in;
+  surface complete; CLI; EMS entropy client against the \code{ems-egress} contract
+  (\code{/v1/entropy/request}, receipt verification) + telemetry; cloud-entropy mix-in;
+  desktop entropy page (specs + EMS toggle, Section~\ref{sec:entropy-ui});
   zero-traffic verification. \emph{Gate G3: TLS + EMS gate groups green.} \\
 S4 & Harden \& ship & Full security test battery (IPC, DLL, zeroization,
   redaction); packaging (MSI, deb/rpm, wheel); docs set; performance report;
@@ -1020,6 +1182,8 @@ exit gate.
   mapping & G2 \\
 \code{python/} & \S\ref{sec:api} API surface; \S\ref{sec:ems} EMS controls & G3 \\
 \code{cli/} & \S\ref{sec:api} operator commands; \S\ref{sec:branding} banner & G3 \\
+\code{desktop/} & \S\ref{sec:entropy-ui} entropy specs + EMS toggle;
+  \S\ref{sec:install-ux} first-run experience & G3 \\
 \code{examples/} & \S\ref{sec:core} hybrid TLS 1.3 client/server & G3 \\
 \code{tests/} & \S\ref{sec:gates} gate definitions & G0--G4 \\
 \code{installer/} & \S\ref{sec:api} packaging; \S\ref{sec:security} secure defaults & G4 \\
@@ -1032,7 +1196,7 @@ exit gate.
 \end{small}
 
 Post-V1 roadmap: wolfSSL FIPS v7 migration (PQC inside boundary); IDQ Quantis QRNG as
-alternate local ESV seed source (Quantum Light); Quantropi QiSpace SEQUR entropy as the
+alternate local seed source (Quantum Light); Quantropi QiSpace SEQUR entropy as the
 EMS upstream, delivered over the mix-in channel; QPU-derived cloud entropy;
 macOS; multi-source entropy pooling; qSearch remediation orchestration.
 
@@ -1044,11 +1208,15 @@ macOS; multi-source entropy pooling; qSearch remediation orchestration.
 \toprule
 \textbf{Risk / item} & \textbf{Prob.} & \textbf{Impact} & \textbf{Mitigation} \\
 \midrule
-Windows FIPS dynamic-library configuration + ESV OE applicability unconfirmed; the
-  Windows 10/i5-1345U and Windows 11/i7-1260P environments are pending and not yet in
-  the current \#4718 security-policy tested-OE table & M & H & Engage wolfSSL at S0;
-  treat CAVP records as algorithm evidence only; make no Windows validated-deployment
-  claim until the CMVP OE update and exact build guidance are published. \\
+CMVP publication timing: Windows 11/i7-1260P and Azure Linux OE testing is complete but
+  the \#4718 certificate/SP update has not landed & M & M & Build and gate the Windows
+  DLL track now (configuration is vendor-confirmed); ship Windows as
+  \code{pending\_publication} status until the SP lists the OE; re-check the published SP
+  before any validated-deployment claim. \\
+EMS \code{ems-egress} stream handler does not compile at platform HEAD
+  (\code{stream.rs} lines 59/65 textually corrupted) & certain & L & Platform team fixes
+  before S3 EMS integration; Veloce's request/response path
+  (\code{/v1/entropy/request}) is unaffected; mix-in fail-safe covers outages anyway. \\
 PQC outside FIPS boundary until v7 & certain & M & Honest per-item status reporting
   (already the documented design); ACVTS algorithm evidence; v7 migration path built into
   the provider interface. \\
@@ -1063,7 +1231,11 @@ wolfSSL \S3 compete clause: Veloce could be read as a ``cryptography library'' &
   EULA wrap. \\
 Collector licensing (GPL) blocks bundling & M & M & Legal review at S0; adapters keep
   collectors replaceable; bring-your-own-collector fallback. \\
-wolfEntropy throughput insufficient for high-rate workloads & M & M & Per-thread DRBG
+OS kernel entropy quality is asserted by the OS, not ESV-certified & certain & M &
+  Honest reporting (\code{entropy\_esv\_certified:\ false}); legacy IG~9.3.A position on
+  record; Lightrider RCT/APT verification on every block; QRNG + v5.2.4/v6 ESV-backed
+  modules on the roadmap when certified. \\
+DRBG throughput insufficient for high-rate workloads & M & M & Per-thread DRBG
   instances (reseeds amortized); measure at the S1 baseline; QRNG roadmap as high-rate
   alternative. \\
 Federal CBOM minimum elements published mid-project & M & L & Versioned CBOM schema
@@ -1082,15 +1254,18 @@ Zeek-on-Windows immaturity & certain & L & Documented capture-and-forward design
 \subsection*{Linux FIPS module (bundle on hand)}
 \begin{quote}
 \code{cd vendor/wolfssl}\\
-\code{./configure -{}-enable-fips=v5 -{}-enable-wolfEntropy=nofallback}\\
+\code{./configure -{}-enable-fips=v5}\\
 \code{make}\\
 \code{./fips-hash.sh}\quad\emph{\small(updates the in-core HMAC-SHA256 verify hash)}\\
 \code{make}\\
 \code{./wolfcrypt/test/testwolfcrypt}\quad\emph{\small(must report all tests passed)}
 \end{quote}
 Notes: autotools is the only FIPS-capable build path in this tree; \code{-{}-enable-fips}
-also turns on reproducible builds. Record DLL/so SHA-256, source version, compiler, and
-flags into the CBOM store at build time.
+also turns on reproducible builds. \code{-{}-enable-wolfEntropy} is \emph{removed}:
+wolfSSL confirmed 2026-08-27 that wolfEntropy was never tested with v5.2.1 and is not to
+be used with the legacy module; seeding is the Lightrider callback registered at runtime.
+Check the final flag set against the wolfCrypt FIPS User Guide / COGM (on hand). Record
+DLL/so SHA-256, source version, compiler, and flags into the CBOM store at build time.
 
 \subsection*{PQC provider (beside boundary)}
 Separate non-FIPS build of the same wolfSSL tree (or standalone compilation of
@@ -1100,18 +1275,22 @@ Separate non-FIPS build of the same wolfSSL tree (or standalone compilation of
 exclusively from the FIPS DRBG via the \code{*WithRandom} APIs; distinct library name and
 symbol namespace so the two builds can never be confused at load time.
 
-\subsection*{Windows}
-Use the wolfSSL-provided \code{IDE/WIN10} FIPS solution (\code{wolfssl-fips.sln}),
-Platform \code{x64}, per-wolfSSL-approved configuration only. Local inspection confirms
-the solution, project, and \code{user\_settings.h} exist. The included README currently
-says to build a static library and documents integrity-sensitive linker settings; Veloce's
-dynamic-loading requirement therefore remains unresolved. wolfSSL lists Windows 10
-Enterprise/i5-1345U (with and without PAA) and Windows 11 Pro/i7-1260P as pending OEs;
-the A4308 CAVP record is not by itself CMVP module/OE approval.
-\dep{Obtain the approved DLL configuration, exact user guide/settings, and published
-\#4718 OE update before enabling the Windows FIPS claim.} Then implement the named-pipe
-transport, restricted DLL loading, Windows service, Windows collectors, MSI, and the same
-hash-verify-record flow behind platform adapters.
+\subsection*{Windows (configuration vendor-confirmed 2026-08-27)}
+Open the wolfSSL-provided \code{IDE/WIN10} FIPS solution (\code{wolfssl-fips.sln}) in
+Visual Studio and select build configuration \code{DLL Debug | x64} or
+\code{DLL Release | x64}. Only DLL builds are supported with FIPS; the README's
+static-library instruction is a legacy copy/paste error being corrected in wolfSSL
+PR \#11142. Use the vendor-supplied v5.2.1 \code{user\_settings.h}
+(\code{HAVE\_FIPS\_VERSION\_MAJOR 5}, \code{HAVE\_FIPS\_VERSION\_MINOR 2},
+\code{HAVE\_FIPS\_VERSION\_PATCH 1}) and the documented in-core integrity linker
+settings, then run the same hash-verify-record flow (\code{fips-hash} equivalent +
+\code{testwolfcrypt}) and record the DLL SHA-256. Implement the named-pipe transport,
+restricted DLL loading (\code{LoadLibraryExW}), Windows service, Windows collectors, and
+MSI behind the platform adapters. Seeding uses the same Lightrider callback with
+\code{BCryptGenRandom} as the kernel source. The Windows 11 Pro/i7-1260P OE is tested
+and awaiting publication on \#4718; until the published security policy lists it,
+Windows ships with \code{validation\_status()} reporting \code{pending\_publication} and
+no validated-deployment claim.
 
 \section{Manual Two-Host Interoperability Test}\label{app:twohost}
 
@@ -1140,7 +1319,8 @@ workbook schema:
 Crypto library / module + version & Crypto Library/Provider; Library Version;
   Cryptographic Module \\
 FIPS certificate (\#4718) & FIPS 140-3 Certificate \\
-Entropy provider + ESV certificate & Entropy Source; ESV Status/Certificate \\
+Entropy provider + verification status & Entropy Source; ESV Status/Certificate
+  (recorded as ``none / locally verified'') \\
 Algorithm + parameter set (e.g.\ ML-KEM-768) & Algorithm; Key/Parameter Size;
   Target PQC Algorithm \\
 TLS version + hybrid group & Protocol/Version; Cipher Suite \\
@@ -1178,7 +1358,19 @@ timestamps.
   \item CryptoScan: \url{https://github.com/csnp/cryptoscan}; Zeek packet analysis:
         \url{https://docs.zeek.org}.
   \item wolfSSL 5.9.2 release (Jun 23, 2026), commercial FIPS bundle
-        \code{linuxv5.2.1}; wolfSSL FIPS-FAQ v2.3.
+        \code{linuxv5.2.1}; wolfSSL FIPS-FAQ v2.3 (\S2: \code{wc\_SetSeed\_Cb} and
+        custom generate-seed).
+  \item wolfSSL written response to Lightrider, 2026-08-27: Windows DLL-only FIPS builds
+        (README correction in PR \#11142); v5.2.1 \code{user\_settings.h}; Windows 11
+        Pro/i7-1260P and Azure Ubuntu 24.04 OEs tested, awaiting \#4718 publication
+        (CAVP validation 36918); legacy IG~9.3.A applicability; wolfEntropy not tested
+        with v5.2.1; ESV \#E335 = v6.0.0 module; wolfCrypt FIPS User Guide / COGM
+        provided.
+  \item CMVP Management Manual \S7.9 (porting and user affirmation at Level 1, keyed to
+        the operating system).
+  \item Lightrider EMS platform (\code{light-rider-platform}): \code{proto/entropy.proto}
+        wire schemas; \code{ems-egress} REST/WebSocket/QUIC entropy endpoints and signed
+        receipts.
   \item Minimus, \emph{From SBOM to CBOM} and \emph{How to Use CBOMs in Containerized
         Environments} (industry perspective).
   \item Light Rider CBOM Starter Template (\code{Light\_Rider\_CBOM\_Template\_Updated.xlsx}).

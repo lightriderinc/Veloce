@@ -62,6 +62,38 @@ def test_fips_snapshot_never_infers_live_approval(monkeypatch):
     assert snapshot["fips_record"]["fips_certificate"] == "#4718"
 
 
+def test_entropy_snapshot_merges_providers_and_mixin(monkeypatch):
+    service = veloce_desktop.DesktopService("token")
+    monkeypatch.setattr(veloce_desktop, "find_tool",
+                        lambda *_: Path("/opt/veloce/bin/veloce"))
+
+    def fake_command(command, timeout=20):
+        if command[-1] == "entropy":
+            return {"providers": [
+                {"name": "lightrider-local", "health": "ok",
+                 "seed_blocks_verified": 3, "seed_health_failures": 0},
+                {"name": "cloud-entropy-mixin", "state": "off",
+                 "last_mixin": "never"},
+            ]}
+        return {"ems": {"mode": "disabled", "entropy_mixin": "off"},
+                "entropy": {"healthy": True}}
+
+    monkeypatch.setattr(veloce_desktop, "run_json_command", fake_command)
+    snapshot = service.entropy_snapshot()
+    assert snapshot["live"] is True
+    assert snapshot["mixin"]["state"] == "off"
+    local = [p for p in snapshot["providers"]
+             if p["name"] == "lightrider-local"][0]
+    assert local["seed_health_failures"] == 0
+
+
+def test_entropy_snapshot_unavailable_without_cli(monkeypatch):
+    monkeypatch.setattr(veloce_desktop, "find_tool", lambda *_: None)
+    snapshot = veloce_desktop.DesktopService("token").entropy_snapshot()
+    assert snapshot["live"] is False
+    assert snapshot["mixin"]["state"] == "off"
+
+
 def _pe_x86_64() -> bytes:
     value = bytearray(512)
     value[:2] = b"MZ"

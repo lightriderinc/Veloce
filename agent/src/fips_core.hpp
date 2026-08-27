@@ -26,8 +26,10 @@ public:
     bool load(const std::string& libPath, const std::string& expectedSha256Hex,
               std::string& err);
 
-    // Instantiate the DRBG (seeded by wolfEntropy inside the module,
-    // nofallback) and probe entropy health. Fail-closed.
+    // Register the Lightrider seed callback (wc_SetSeed_Cb) and
+    // instantiate the DRBG. The module makes no entropy claim (#4718 SP
+    // 11.1); every seed block comes from the OS kernel entropy interface
+    // and passes RCT/APT verification before delivery. Fail-closed.
     bool start(std::string& err);
 
     // wolfCrypt_GetStatus_fips(); 0 means the module is in the approved
@@ -37,9 +39,16 @@ public:
     // wc_RunAllCast_fips(): run all conditional algorithm self-tests.
     bool runCasts(std::string& err);
 
-    // On-demand SP 800-90B health test of the wolfEntropy source, when the
-    // module exports it.
-    bool entropyOnDemandTest(std::string& detail);
+    // On-demand health test: draw a fresh sample from the OS kernel
+    // entropy source and run the same RCT/APT verification used on the
+    // seed path. Does not touch the DRBG.
+    bool entropySelfTest(std::string& detail);
+
+    // Seed-path counters for status reporting (spec 6.3 entropy UI).
+    static uint64_t seedBlocksVerified();
+    static uint64_t seedBytesVerified();
+    static uint64_t seedHealthFailures();
+    static int64_t lastSeedUnix();
 
     // FIPS DRBG output. False (and degraded state) on failure.
     bool randomBytes(uint8_t* out, size_t len);

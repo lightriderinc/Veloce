@@ -345,6 +345,53 @@ class DesktopService:
             raise RuntimeError("Veloce CLI is not installed in this release")
         return run_json_command([str(cli), "--json", "self-test"], timeout=120)
 
+    def entropy_snapshot(self) -> Dict[str, Any]:
+        """Live entropy streaming specs for the desktop entropy page.
+
+        Raw entropy is never read or displayed; this merges the agent's
+        provider list (specs + verification counters) with the health view
+        (mix-in state, last mix-in)."""
+        self._packaged_endpoint()
+        snapshot: Dict[str, Any] = {
+            "live": False,
+            "providers": [],
+            "mixin": {"state": "off", "last_mixin": "never"},
+            "ems_mode": "disabled",
+            "message": "Veloce native agent is not installed or not running.",
+        }
+        cli = find_tool("veloce", "VELOCE_CLI")
+        if cli is None:
+            return snapshot
+        try:
+            providers = run_json_command([str(cli), "--json", "entropy"])
+            status = run_json_command([str(cli), "--json", "status"])
+        except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
+            snapshot["message"] = str(exc)
+            return snapshot
+        ems = status.get("ems") or {}
+        mixin = next((p for p in providers.get("providers", [])
+                      if p.get("name") == "cloud-entropy-mixin"), {})
+        snapshot.update({
+            "live": True,
+            "providers": providers.get("providers", []),
+            "entropy_health": status.get("entropy", {}),
+            "mixin": {
+                "state": mixin.get("state", ems.get("entropy_mixin", "off")),
+                "last_mixin": mixin.get("last_mixin",
+                                        ems.get("last_mixin", "never")),
+            },
+            "ems_mode": ems.get("mode", "disabled"),
+            "message": "Live entropy status from the local Veloce agent.",
+        })
+        return snapshot
+
+    def set_entropy_mixin(self, enabled: bool) -> Dict[str, Any]:
+        cli = find_tool("veloce", "VELOCE_CLI")
+        if cli is None:
+            raise RuntimeError("Veloce CLI is not installed in this release")
+        return run_json_command(
+            [str(cli), "--json", "mixin", "on" if enabled else "off"])
+
     def select_directory(self) -> str:
         system = platform.system()
         if system == "Windows":
@@ -530,6 +577,8 @@ class DesktopHandler(BaseHTTPRequestHandler):
                 self._send_json(self.service.platform_info())
             elif parsed.path == "/api/fips":
                 self._send_json(self.service.fips_snapshot())
+            elif parsed.path == "/api/entropy":
+                self._send_json(self.service.entropy_snapshot())
             elif parsed.path == "/api/qsearch/job":
                 job_id = parse_qs(parsed.query).get("id", [""])[0]
                 job = self.service.get_job(job_id)
@@ -551,6 +600,11 @@ class DesktopHandler(BaseHTTPRequestHandler):
             data = self._read_json()
             if parsed.path == "/api/fips/self-test":
                 self._send_json(self.service.run_self_test())
+            elif parsed.path == "/api/entropy/mixin":
+                enabled = data.get("enabled")
+                if not isinstance(enabled, bool):
+                    raise ValueError("enabled must be true or false")
+                self._send_json(self.service.set_entropy_mixin(enabled))
             elif parsed.path == "/api/qsearch/select-directory":
                 self._send_json({"path": self.service.select_directory()})
             elif parsed.path == "/api/qsearch/run":

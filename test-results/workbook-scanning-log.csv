@@ -1,2 +1,2 @@
 Scan ID,Scan Date,Tool / Method,Scope,Environment,Assets Scanned,New Crypto Findings,Changed Findings,High-Risk Findings,CBOM Records Updated,False Positives,Exceptions,Operator,Evidence Location,Next Scan Date,Notes
-SCAN-1786554398,2026-08-12,qSearch 1.0.0 (scan collector),examples,srv862034 (linux x86-64),3,32,,1,,pending validation,,varun,workbook-discovery-findings.csv + findings.json,,reference workbook: Light_Rider_CBOM_Template_Updated.xlsx
+SCAN-1786727939,2026-08-14,qSearch 1.0.0 (scan collector),examples,srv862034 (linux x86-64),3,32,,1,,pending validation,,varun,workbook-discovery-findings.csv + findings.json,,reference workbook: Light_Rider_CBOM_Template_Updated.xlsx

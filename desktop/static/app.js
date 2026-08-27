@@ -36,10 +36,16 @@ function setValueState(id, state) {
   if (state) element.classList.add(`value-${state}`);
 }
 
+const PAGE_TITLES = {
+  dashboard: "Security dashboard",
+  qsearch: "qSearch discovery",
+  entropy: "Entropy streaming",
+};
+
 function switchPage(page) {
   document.querySelectorAll(".page").forEach((item) => item.classList.toggle("active", item.id === `${page}-page`));
   document.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.page === page));
-  setText("page-title", page === "dashboard" ? "Security dashboard" : "qSearch discovery");
+  setText("page-title", PAGE_TITLES[page] || page);
 }
 
 function addRecordRow(list, label, value) {
@@ -161,6 +167,71 @@ async function runSelfTests() {
   }
 }
 
+function formatSeedTime(unixSeconds) {
+  if (!unixSeconds || unixSeconds <= 0) return "—";
+  return new Date(unixSeconds * 1000).toLocaleTimeString();
+}
+
+function renderEntropy(snapshot) {
+  setText("entropy-message", snapshot.message);
+  const local = (snapshot.providers || []).find((p) => p.name === "lightrider-local") || {};
+  const healthy = snapshot.live && local.health === "ok";
+  setText("provider-value", snapshot.live ? (healthy ? "VERIFIED" : "FAILED") : "NO LIVE DATA");
+  setValueState("provider-value", snapshot.live ? (healthy ? "good" : "bad") : "warn");
+  setText("provider-detail", local.type || "Local seed provider");
+  setText("blocks-value", snapshot.live ? local.seed_blocks_verified : "—");
+  setText("failures-value", snapshot.live ? local.seed_health_failures : "—");
+  setValueState("failures-value", snapshot.live ? (local.seed_health_failures === 0 ? "good" : "bad") : "warn");
+  setText("last-seed-value", snapshot.live ? formatSeedTime(local.last_seed_unix) : "—");
+
+  const specs = byId("entropy-specs");
+  specs.replaceChildren();
+  addRecordRow(specs, "Provider", local.name || "lightrider-local");
+  addRecordRow(specs, "Source", local.type);
+  addRecordRow(specs, "DRBG", local.drbg);
+  addRecordRow(specs, "Health tests", local.health_tests);
+  addRecordRow(specs, "Bytes verified", snapshot.live ? String(local.seed_bytes_verified) : "");
+  addRecordRow(specs, "ESV certified", local.esv_certified === false ? "No (legacy IG 9.3.A; locally verified)" : "");
+
+  const mixinOn = snapshot.mixin && snapshot.mixin.state === "on";
+  setText("mixin-state", mixinOn ? "on" : "off");
+  const toggle = byId("mixin-toggle");
+  toggle.checked = mixinOn;
+  toggle.disabled = !snapshot.live;
+  setText("mixin-label", mixinOn ? "Cloud EMS enabled (additional input only)" : "Cloud EMS disabled");
+  const mixinRecord = byId("mixin-record");
+  mixinRecord.replaceChildren();
+  addRecordRow(mixinRecord, "EMS mode", snapshot.ems_mode);
+  addRecordRow(mixinRecord, "Last mix-in", (snapshot.mixin || {}).last_mixin);
+  addRecordRow(mixinRecord, "Credited entropy", "Zero; local provider remains the sole seed");
+}
+
+async function refreshEntropy() {
+  byId("refresh-entropy").disabled = true;
+  try {
+    renderEntropy(await api("/api/entropy"));
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    byId("refresh-entropy").disabled = false;
+  }
+}
+
+async function toggleMixin() {
+  const toggle = byId("mixin-toggle");
+  toggle.disabled = true;
+  try {
+    await api("/api/entropy/mixin", {method: "POST", body: JSON.stringify({enabled: toggle.checked})});
+    showToast(toggle.checked ? "Cloud entropy mix-in enabled." : "Cloud entropy mix-in disabled.");
+  } catch (error) {
+    toggle.checked = !toggle.checked;
+    showToast(error.message);
+  } finally {
+    toggle.disabled = false;
+    await refreshEntropy();
+  }
+}
+
 function classificationClass(value) {
   if (value === "quantum-vulnerable") return "vulnerable";
   if (value === "pqc-ready") return "ready";
@@ -260,11 +331,14 @@ async function initialize() {
     showToast(error.message);
   }
   await refreshFips();
+  await refreshEntropy();
 }
 
 document.querySelectorAll(".nav-item").forEach((item) => item.addEventListener("click", () => switchPage(item.dataset.page)));
 byId("refresh-fips").addEventListener("click", refreshFips);
 byId("run-self-test").addEventListener("click", runSelfTests);
+byId("refresh-entropy").addEventListener("click", refreshEntropy);
+byId("mixin-toggle").addEventListener("change", toggleMixin);
 byId("choose-folder").addEventListener("click", chooseFolder);
 byId("start-scan").addEventListener("click", startScan);
 byId("open-report").addEventListener("click", async () => {

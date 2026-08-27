@@ -244,8 +244,8 @@ fn print_banner(quiet: bool, json_mode: bool) {
             let approved = extract(&resp, "approved_mode").unwrap_or("unknown");
             let entropy = extract(&resp, "healthy").unwrap_or("unknown");
             println!(
-                "FIPS 140-3 #4718 | ESV entropy: {} | approved mode: {}",
-                if entropy == "true" { "OK" } else { "FAILED" },
+                "FIPS 140-3 #4718 | entropy: {} | approved mode: {}",
+                if entropy == "true" { "verified (local)" } else { "FAILED" },
                 if approved == "true" { "on" } else { "off" }
             );
         }
@@ -275,6 +275,7 @@ fn usage() -> ! {
          self-test         run FIPS CASTs, entropy health, PQC self-test\n  \
          providers         crypto providers\n  \
          entropy           entropy providers incl. cloud mix-in state\n  \
+         mixin <on|off>    enable/disable the cloud-entropy mix-in\n  \
          policies          policy profiles\n  \
          cbom [cyclonedx]  export CBOM (default: records format)\n  \
          diag              write a redacted diagnostic bundle\n  \
@@ -303,6 +304,18 @@ fn main() {
         "self-test" => run("run_fips_self_tests", "{}"),
         "providers" => run("list_crypto_providers", "{}"),
         "entropy" => run("list_entropy_providers", "{}"),
+        "mixin" => {
+            let state = args.get(1).map(String::as_str).unwrap_or("");
+            let enabled = match state {
+                "on" => true,
+                "off" => false,
+                _ => {
+                    eprintln!("veloce mixin: expected on or off");
+                    std::process::exit(2);
+                }
+            };
+            run("set_entropy_mixin", &format!("{{\"enabled\":{}}}", enabled));
+        }
         "policies" => run("list_policy_profiles", "{}"),
         "cbom" => {
             let format = args.get(1).map(String::as_str).unwrap_or("records");

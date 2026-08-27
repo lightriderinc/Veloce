@@ -1,8 +1,8 @@
 qsearch 1.0.0 run log
 mode: scan
 root: examples
-started_unix: 1786554398 (2026-08-12)
-duration_ms: 2
+started_unix: 1786727939 (2026-08-14)
+duration_ms: 11
 files_seen: 3
 files_scanned: 3
 skipped_over_4MB: 0
