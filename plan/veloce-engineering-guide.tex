@@ -400,8 +400,11 @@ when enabled.
     {\icWave\ Lightrider entropy provider\\\scriptsize OS kernel entropy + RCT/APT verification, fail-closed};
 
   % --- FIPS boundary ---
-  \node[draw=fipsgold, dashed, thick, rounded corners=3pt, fit=(wc), inner sep=5pt,
-        label={[fipsgold, font=\scriptsize\sffamily]right:FIPS 140-3 validated boundary (cert \#4718)}] {};
+  \node[draw=fipsgold, dashed, thick, rounded corners=3pt, fit=(wc), inner sep=5pt]
+        (fipsboundary) {};
+  \node[fill=white, text=fipsgold, font=\scriptsize\sffamily,
+        inner xsep=2pt, inner ysep=0pt, anchor=south west]
+        at ([xshift=5pt]fipsboundary.north west) {FIPS boundary};
 
   % --- flows (orthogonal, no crossings) ---
   \draw[arrow] (py.south)  -- (py.south  |- ipc.north);
