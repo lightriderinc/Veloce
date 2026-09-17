@@ -71,7 +71,7 @@ json.dump({
     "source_version": "wolfssl-5.9.2-commercial-fips-linuxv5.2.1",
     "fips_module_version": "5.2.1",
     "fips_certificate": "#4718",
-    "entropy_source": "lightrider-local (OS kernel entropy + RCT/APT verification)",
+    "entropy_source": "lightrider-local (CPU RDSEED hardware entropy + SP 800-90B RCT/APT health tests; os-drbg only by explicit configuration, reported as an unvalidated chain)",
     "build_flags": "--enable-fips=v5",
     "compiler": cc,
     "operating_environment": "macOS " + mac + " " + platform.machine(),

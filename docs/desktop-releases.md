@@ -64,7 +64,8 @@ live agent response:
 - FIPS library hash verified before loading;
 - FIPS module status is zero;
 - power-on and conditional algorithm self-tests passed;
-- the Lightrider seed callback's RCT/APT verification is passing;
+- the Lightrider seed callback's SP 800-90B health tests on the configured
+  seed source (CPU RDSEED by default) are passing;
 - the FIPS DRBG is instantiated;
 - the PQC provider self-test passed.
 
@@ -206,9 +207,13 @@ Apps and features, and shows the license (rendered from `LICENSE` at build
 time) and install-directory dialogs with Lightrider artwork. The checksum
 file is `sha256sum -c` compatible.
 
-The `Desktop discovery release` workflow (`.github/workflows/`) runs the
-desktop and Windows artifact tests, then builds the discovery-only ZIP, MSI,
-and checksums on `windows-latest`.
+Two workflows build Windows packages in CI (`.github/workflows/`):
+`Desktop discovery release` produces workflow artifacts for testing, and
+`Release` (tag push `v*` or manual dispatch) builds the Windows ZIP and MSI
+and the macOS DMG, then attaches them with checksums and the Windows quick
+start to a draft GitHub Release for the owner to publish. End users then
+download and run without building (`docs/windows-quickstart.md`). The exit
+dialog of the MSI offers to launch Veloce Desktop.
 
 ## macOS build
 

@@ -16,6 +16,7 @@ import argparse
 import glob
 import json
 import os
+import platform
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -39,6 +40,17 @@ def platform_defaults(platform_name=None):
             "build_hint": "scripts/build_fips.sh", "endpoint_key": "socket",
             "endpoint": os.path.expanduser("~/.veloce/agent.sock"),
             "out": os.path.expanduser("~/.veloce/agent.json")}
+
+
+def default_entropy_source(machine=None):
+    """"rdseed" on x86-64 (hardware seed source); "os-drbg" elsewhere.
+
+    os-drbg is the operating system DRBG output: an SP 800-90C RBGC chain
+    with no security-strength claim. The agent reports it as such."""
+    machine = (machine or platform.machine()).lower()
+    if machine in ("x86_64", "amd64", "x64"):
+        return "rdseed"
+    return "os-drbg"
 
 
 def recorded_library(lib_dir, fallback_glob):
@@ -66,6 +78,11 @@ def main() -> int:
                     help="UNIX socket path (Linux/macOS)")
     ap.add_argument("--pipe", default=None,
                     help="named pipe path (Windows)")
+    ap.add_argument("--entropy-source", choices=["rdseed", "os-drbg"],
+                    default=os.environ.get("VELOCE_ENTROPY_SOURCE")
+                    or default_entropy_source(),
+                    help="seed source: rdseed (hardware, default on x86-64) "
+                         "or os-drbg (unvalidated OS DRBG chain)")
     args = ap.parse_args()
 
     fips_dir = os.path.join(ROOT, "build", "lib", "fips")
@@ -92,6 +109,7 @@ def main() -> int:
         "pqc_lib": pqc_lib,
         "pqc_record": os.path.join(pqc_dir, "build-record.json"),
         "ems": {"mode": "disabled", "endpoint": "", "entropy_mixin": "off"},
+        "entropy": {"source": args.entropy_source},
     }
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as f:

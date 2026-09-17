@@ -6,13 +6,15 @@
     PayloadDir      PyInstaller one-directory payload containing Veloce.exe
     ProductVersion  release version, for example 1.2.0
     BrandingDir     assets/branding (veloce.ico, wix-banner.bmp, wix-dialog.bmp)
+  Extensions: WixToolset.UI.wixext and WixToolset.Util.wixext (added by the script).
     LicenseRtf      RTF rendering of LICENSE written by the desktop packager
 
   The lib\ payload holds the hash-recorded FIPS module and PQC provider. The
   installer copies those files byte for byte; it never patches or signs them.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
-     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
   <Package Name="Veloce Desktop"
            Manufacturer="Lightrider Inc"
            Version="$(ProductVersion)"
@@ -32,6 +34,22 @@
     <WixVariable Id="WixUIBannerBmp" Value="$(BrandingDir)\wix-banner.bmp" />
     <WixVariable Id="WixUIDialogBmp" Value="$(BrandingDir)\wix-dialog.bmp" />
     <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+
+    <!-- Click to run: the exit dialog offers to launch the app -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch Veloce Desktop" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <Property Id="WixShellExecTarget" Value="[#VeloceDesktopExe]" />
+    <CustomAction Id="LaunchVeloceDesktop"
+                  BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)"
+                  DllEntry="WixShellExec"
+                  Impersonate="yes" />
+    <UI>
+      <Publish Dialog="ExitDialog"
+               Control="Finish"
+               Event="DoAction"
+               Value="LaunchVeloceDesktop"
+               Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed" />
+    </UI>
 
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="Veloce">

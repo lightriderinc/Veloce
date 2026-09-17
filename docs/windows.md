@@ -78,7 +78,7 @@ step 8 is the acceptance check.
      "source_version": "<bundle directory name>",
      "fips_module_version": "5.2.1",
      "fips_certificate": "#4718",
-     "entropy_source": "lightrider-local (OS kernel entropy + RCT/APT verification)",
+     "entropy_source": "lightrider-local (CPU RDSEED hardware entropy + SP 800-90B RCT/APT health tests)",
      "build_flags": "IDE/WIN10 wolfssl-fips.sln DLL Release|x64; vendor user_settings.h v5.2.1",
      "compiler": "MSVC <version>",
      "operating_environment": "Windows 11 Pro x86_64 (Intel i7-1260P)",
@@ -182,6 +182,17 @@ Logs: `%LOCALAPPDATA%\Lightrider\Veloce\agent.log`. The CLI reads
 
 Registration as the `VelocePqcAgent` service under `LocalService` is a
 separate managed deployment step and is not performed by the MSI.
+
+## Entropy seed source
+
+The agent seeds the FIPS DRBG from the processor's RDSEED instruction by
+default (`entropy.source: rdseed`), applying SP 800-90B RCT/APT health
+tests to every block, and fails closed when RDSEED is unavailable. Virtual
+machines must expose RDSEED to the guest (check `Get-CimInstance
+Win32_Processor` on the host or run `veloce --json status` and read
+`entropy.source_kind`). Setting `entropy.source` to `os-drbg` uses
+`BCryptGenRandom` instead; that is operating system DRBG output, an
+SP 800-90C RBGC chain that status reports with no security-strength claim.
 
 ## Validation posture
 

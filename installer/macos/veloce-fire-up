@@ -38,12 +38,24 @@ done
 
 umask 077
 install -d -m 700 "$STATE_DIR"
+# Seed source: rdseed on Intel Macs (CPU hardware entropy). Apple silicon
+# has no RDSEED, so arm64 uses os-drbg: operating system DRBG output, an
+# unvalidated SP 800-90C chain that the agent reports with no strength claim.
+ENTROPY_SOURCE="${VELOCE_ENTROPY_SOURCE:-}"
+if [ -z "$ENTROPY_SOURCE" ]; then
+    case "$(uname -m)" in
+        x86_64) ENTROPY_SOURCE="rdseed" ;;
+        *) ENTROPY_SOURCE="os-drbg" ;;
+    esac
+fi
+
 python3 - "$CONFIG" "$SOCKET" "$fips_lib" "$fips_record" \
-    "$pqc_lib" "$pqc_record" <<'PY'
+    "$pqc_lib" "$pqc_record" "$ENTROPY_SOURCE" <<'PY'
 import json
 import sys
 
-out, socket, fips_lib, fips_record, pqc_lib, pqc_record = sys.argv[1:]
+(out, socket, fips_lib, fips_record, pqc_lib, pqc_record,
+ entropy_source) = sys.argv[1:]
 config = {
     "socket": socket,
     "fips_lib": fips_lib,
@@ -51,6 +63,7 @@ config = {
     "pqc_lib": pqc_lib,
     "pqc_record": pqc_record,
     "ems": {"mode": "disabled", "endpoint": "", "entropy_mixin": "off"},
+    "entropy": {"source": entropy_source},
 }
 with open(out, "w", encoding="utf-8") as handle:
     json.dump(config, handle, indent=2)

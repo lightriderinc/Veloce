@@ -188,9 +188,9 @@ validated-deployment claim is CMVP publication of the tested OE rows.
   \item[Pillar B: Entropy generator and FIPS crypto core.] A native C++17 agent embedding
   the wolfCrypt FIPS 140-3 validated module (CMVP cert \#4718) whose SP~800-90A Hash\_DRBG
   is seeded only by the Lightrider local entropy provider: a custom generate-seed callback
-  (\code{wc\_SetSeed\_Cb()}, per wolfSSL FIPS FAQ \S2) drawing OS kernel entropy
-  (\code{getrandom()} on Linux, \code{BCryptGenRandom} on Windows) and verifying every
-  seed block in-process with SP~800-90B-style RCT/APT health tests, fail-closed. No ESV
+  (\code{wc\_SetSeed\_Cb()}, per wolfSSL FIPS FAQ \S2) drawing CPU RDSEED hardware
+  entropy (x86-64) and applying SP~800-90B RCT/APT health tests to every seed block
+  in-process, fail-closed. No ESV
   certificate is claimed; the module makes no entropy claim and legacy IG~9.3.A applies
   (vendor-confirmed). The agent provides ML-KEM-768 key establishment and ML-DSA
   signatures, consumed from a pure-Python SDK over an authenticated local IPC channel.
@@ -213,8 +213,9 @@ Crypto module & wolfCrypt FIPS 140-3 module v5.2.1, CMVP cert \#4718, dynamicall
   purchased bundle carries this exact validated module; autotools
   (\code{-{}-enable-fips=v5}) is its only FIPS-capable build path. \\
 Entropy source & Lightrider local entropy provider: custom generate-seed callback wired
-  via \code{wc\_SetSeed\_Cb()}, OS kernel entropy + Lightrider RCT/APT verification,
-  fail-closed & The FIPS module itself makes no entropy claim and requires an external
+  via \code{wc\_SetSeed\_Cb()}, CPU RDSEED hardware entropy + SP~800-90B RCT/APT health
+  tests, fail-closed; OS DRBG output only by explicit configuration, reported as an
+  unvalidated SP~800-90C chain & The FIPS module itself makes no entropy claim and requires an external
   seed source (\#4718 SP \S11.1); under legacy IG~9.3.A (vendor-confirmed 2026-08-27) a
   documented external source is the compliant design. wolfEntropy is \emph{not used}:
   wolfSSL confirmed it was never tested with v5.2.1 and recommends against it; ESV
@@ -313,8 +314,8 @@ qSearch discovery & Source-code and dependency scanning; certificate and protoco
   other quantum-vulnerable cryptography \\
 CBOM & Automatic CBOM export in JSON, CSV, and CycloneDX; M-23-02 inventory fields;
   executive summary; mapping to the Light Rider CBOM workbook \\
-Entropy & Lightrider local entropy provider (OS kernel entropy via custom generate-seed
-  callback), SP~800-90B-style RCT/APT verification of every seed block, fail-closed
+Entropy & Lightrider local entropy provider (CPU RDSEED hardware entropy via custom
+  generate-seed callback), SP~800-90B RCT/APT health tests on every seed block, fail-closed
   seeding/reseeding of the wolfCrypt DRBG; live entropy specs surfaced in the SDK, CLI,
   and desktop UI \\
 PQC services & ML-KEM key generation / encapsulation / decapsulation; ML-DSA signing /
@@ -345,9 +346,11 @@ macOS. \emph{Do not expand V1 scope without approval.}
 \midrule
 FIPS 140-3 & Module validation & wolfCrypt module v5.2.1, CMVP cert \#4718 \\
 SP 800-90A & DRBG & Hash\_DRBG (SHA-256), 256-bit strength \\
-SP 800-90B & Entropy verification & Lightrider RCT + APT health tests on the OS seed
-  stream (engineering assurance; no ESV certificate exists for v5.2.1, legacy IG~9.3.A
-  applies) \\
+SP 800-90B & Entropy source health tests & RCT (cutoff 4) + APT (13/512) at
+  $H = 8$ bits/sample on the RDSEED seed stream, 1024-sample startup test (engineering
+  assurance; no ESV certificate exists for v5.2.1, legacy IG~9.3.A applies) \\
+SP 800-90C & RBG construction & RDSEED entropy source seeding the module DRBG directly;
+  the optional OS DRBG source is an RBGC chain and carries no security-strength claim \\
 FIPS 203 / 204 & PQC algorithms & ML-KEM-768 (default), ML-DSA \\
 TLS 1.3 (RFC 8446) & Protocol & Hybrid groups, e.g.\ \code{X25519MLKEM768} \\
 CycloneDX CBOM & Inventory format & qSearch + SDK CBOM export \\
@@ -397,7 +400,7 @@ when enabled.
   \node[box, minimum width=10em] (pqc) at (6.2,-6.4)
     {\icAtom\ PQC provider\\\scriptsize ML-KEM / ML-DSA,\\\scriptsize beside boundary};
   \node[box, minimum width=13em] (ent) at (-0.1,-8.5)
-    {\icWave\ Lightrider entropy provider\\\scriptsize OS kernel entropy + RCT/APT verification, fail-closed};
+    {\icWave\ Lightrider entropy provider\\\scriptsize CPU RDSEED entropy + SP 800-90B RCT/APT, fail-closed};
 
   % --- FIPS boundary ---
   \node[draw=fipsgold, dashed, thick, rounded corners=3pt, fit=(wc), inner sep=5pt]
@@ -432,9 +435,10 @@ Veloce Agent & C++17 & wolfCrypt lifecycle, entropy, keys (opaque handles), poli
   profiles, FIPS self-tests, validation status, CBOM records, EMS client, diagnostics. \\
 wolfCrypt module & C & FIPS 140-3 approved algorithms + Hash\_DRBG (dynamic library;
   never statically linked; protected files never modified). \\
-Lightrider entropy provider & C++ (agent) & Custom generate-seed callback: OS kernel
-  entropy acquisition, SP~800-90B-style RCT/APT verification, fail-closed delivery via
-  \code{wc\_SetSeed\_Cb()}; live entropy-spec reporting. \\
+Lightrider entropy provider & C++ (agent) & Custom generate-seed callback: CPU RDSEED
+  entropy acquisition (OS DRBG output only by explicit configuration), SP~800-90B RCT/APT
+  health tests, fail-closed delivery via \code{wc\_SetSeed\_Cb()}; live entropy-spec
+  reporting including source kind, RBG construction, and strength claim. \\
 PQC provider & C & ML-KEM / ML-DSA from the wolfSSL tree, compiled beside the FIPS
   boundary (see \ref{sec:pqc-boundary}). \\
 qSearch & Rust & Collector adapters, normalization, correlation, classification, CBOM
@@ -587,8 +591,8 @@ with PQC and TLS services above it. All failure modes are fail-closed.
   box/.style={draw, rounded corners=2pt, minimum height=2.4em, minimum width=13em, align=center, fill=white},
   arrow/.style={-{Stealth[length=2mm]}, thick},
   node distance=0.5cm]
-  \node[box] (src) {\icWave\ \textbf{OS kernel entropy}\\\scriptsize \code{getrandom()} on Linux; \code{BCryptGenRandom} on Windows};
-  \node[box, below=of src] (cond) {\icShield\ \textbf{Lightrider entropy verification}\\\scriptsize SP 800-90B-style RCT (cutoff 31) + APT (325/512) on every seed block, startup + continuous};
+  \node[box] (src) {\icWave\ \textbf{CPU RDSEED entropy source}\\\scriptsize x86-64 \code{RDSEED}: conditioned SP 800-90B noise-source output; OS DRBG only by explicit configuration};
+  \node[box, below=of src] (cond) {\icShield\ \textbf{Lightrider entropy health tests}\\\scriptsize SP 800-90B RCT (cutoff 4) + APT (13/512), $H=8$ bits/sample; 1024-sample startup test + continuous};
   \node[box, fill=fipsgold!12, below=of cond] (drbg) {\icGear\ \textbf{wolfCrypt Hash\_DRBG (SHA-256)}\\\scriptsize 256-bit strength; 64-byte seed (scale factor 2); reseed interval $10^6$; cert \#4718};
   \node[box, below=of drbg] (out) {\icLock\ \textbf{Veloce random-bit output + crypto services}\\\scriptsize ML-KEM, ML-DSA, TLS 1.3 keys, nonces};
   \node[box, right=1.0cm of drbg, minimum width=9em, fill=lrgray!8] (ems) {\icCloud\ EMS cloud entropy\\\scriptsize optional \emph{additional input}\\\scriptsize never the seed\\\scriptsize signed receipts, Quantropi upstream};
@@ -607,9 +611,10 @@ external seed source. After loading the module and checking
 \code{wolfCrypt\_GetStatus\_fips()}, the agent registers the \emph{Lightrider
 generate-seed callback} with \code{wc\_SetSeed\_Cb()} --- the mechanism wolfSSL's FIPS
 FAQ \S2 prescribes for custom seeding --- and instantiates the FIPS DRBG with
-\code{wc\_InitRng()}. The callback acquires seed material from the OS kernel entropy
-interface, runs the Lightrider RCT/APT verification over every block, and returns it
-only on pass; any acquisition or health-test failure returns an error, and because the
+\code{wc\_InitRng()}. The callback acquires seed material from the processor's RDSEED
+instruction (conditioned output of the CPU's SP~800-90B noise source, delivered directly
+to the module DRBG so that no second DRBG sits in the seed path), runs the SP~800-90B
+RCT/APT health tests over every block, and returns it only on pass; any acquisition or health-test failure returns an error, and because the
 FIPS build defines \code{WC\_RNG\_SEED\_CB}, the DRBG then refuses to instantiate or
 reseed --- there is no silent fallback path. wolfEntropy is not used: wolfSSL confirmed
 on 2026-08-27 that it was never tested with module v5.2.1 and recommends against pairing
@@ -617,6 +622,24 @@ it with the legacy module. The agent exposes
 \code{FipsCore::randomBytes()} as a callback to the separate PQC provider: ML-KEM keygen
 requests 64 bytes; ML-KEM encapsulation, ML-DSA keygen, and hedged ML-DSA signing request
 32 bytes each. Applications never supply or retrieve raw entropy.
+
+\textbf{Seed source selection (revised 2026-09-17).} The configuration key
+\code{entropy.source} selects \code{rdseed} (default) or \code{os-drbg}; there is no
+runtime fallback between them. \code{os-drbg} reads \code{getrandom()} on Linux and
+\code{BCryptGenRandom} on Windows, which return the operating system DRBG's output.
+Seeding the module DRBG from that output forms an SP~800-90C RBGC construction, and
+where the operating system RBG is not validated for the operational environment no
+security strength can be claimed for the chain; the same is true of the module's
+portable \code{wc\_GenerateSeed} callback, which reads \code{/dev/urandom}. The
+\code{os-drbg} source therefore exists only for processors without RDSEED (arm64) and
+for development, and \code{validation\_status()} reports it as
+\code{rbg\_construction: SP 800-90C RBGC} with \code{security\_strength\_claim: none}.
+The RDSEED source is reported as an SP~800-90B entropy source seeding the DRBG directly;
+its health-test parameters assume the processor vendor's full-entropy rating
+($H = 8$ bits per 8-bit sample, $\alpha = 2^{-20}$), and a formal entropy assessment or
+ESV certificate for the RDSEED source on each operational environment remains an open
+vendor item. When RDSEED is absent and \code{os-drbg} is not configured, the agent fails
+closed.
 
 \textbf{Fail-closed policy.} If entropy initialization, a health test (RCT/APT), or a
 reseed fails, the agent transitions to a degraded state: all key generation, signing,
@@ -632,15 +655,15 @@ about a year from certification as a \emph{new} certificate. Module \#4718 was v
 before 2026-01-01 and therefore falls under \emph{legacy} IG~9.3.A, which permits an
 external documented seed source without an attached ESV validation. Veloce's compliance
 position is exactly that: the module's own certificate plus a documented, health-tested
-external seed source, reported honestly in \code{validation\_status()} as
-\code{entropy\_esv\_certified:\ false}, \code{entropy\_verified\_local:\ true}. The
-Lightrider RCT/APT layer is engineering assurance and is never represented as an ESV
-credit. Per wolfSSL: ``testing is the only confidence when it comes to FIPS''; the
+external seed source, reported in \code{validation\_status()} as
+\code{esv\_certified:\ false}, \code{source\_kind}, \code{rbg\_construction}, and
+\code{security\_strength\_claim:\ none}. The Lightrider RCT/APT layer is engineering
+assurance and is never represented as an ESV credit. Per wolfSSL: ``testing is the only confidence when it comes to FIPS''; the
 verification layer plus the gate battery is that testing.
 
 \textbf{Entropy providers.} V1 ships exactly one seed provider: the Lightrider local
-entropy provider (OS kernel entropy, verified per block). No hardware entropy is
-integrated in V1. Two quantum-entropy integrations follow post-V1: the
+entropy provider (CPU RDSEED entropy, health-tested per block; OS DRBG output only by
+explicit configuration). No external hardware entropy device is integrated in V1. Two quantum-entropy integrations follow post-V1: the
 \textbf{Quantropi} quantum-entropy service (QiSpace SEQUR), delivered over the network
 through the EMS cloud-entropy channel as DRBG additional input
 (Section~\ref{sec:cloud-entropy}); and the IDQ Quantis QRNG as a local alternate seed
@@ -825,8 +848,8 @@ The page has exactly two jobs:
         \code{list\_entropy\_providers()} and \code{health()}, never hardcoded:
         provider name and type (\code{lightrider-local}, OS kernel interface); DRBG
         (Hash\_DRBG SHA-256, 256-bit strength, reseed interval); health-test status and
-        counters (RCT cutoff 31, APT 325/512, blocks verified, failures --- always zero
-        or the agent is degraded); last seed/reseed time; and, when the mix-in is on,
+        counters (RCT cutoff 4, APT 13/512, blocks verified, failures: always zero or
+        the agent is degraded); source kind, RBG construction, and strength claim; last seed/reseed time; and, when the mix-in is on,
         the last EMS receipt summary (pool, contributing sources, quality score,
         signature status, freshness age, bytes per tick). Raw entropy values are never
         displayed or exposed.
@@ -1090,7 +1113,8 @@ Release is gate-based: V1 does not ship until every gate passes on both platform
 \textbf{Gate group} & \textbf{Must pass} \\
 \midrule
 FIPS \& entropy & wolfCrypt test suite; startup + conditional self-tests; Lightrider
-  seed-callback verification tests (RCT/APT pass and induced-failure); induced
+  seed-callback health tests (RCT/APT pass and induced-failure); seed-source reporting
+  (RDSEED direct or explicitly labelled OS DRBG chain, no over-claim); induced
   entropy-failure and reseed-failure tests (fail-closed verified: DRBG refuses to
   instantiate/reseed on callback error); seed-path proof (strace/ETW evidence that seeds
   flow through the registered callback); DRBG continuous-test behavior. \\

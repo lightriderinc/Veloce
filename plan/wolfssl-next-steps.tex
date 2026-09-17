@@ -18,7 +18,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[L]{\small\sffamily Lightrider Inc: Requests to wolfSSL}
-\fancyhead[R]{\small\sffamily September 7, 2026 (rev.\ 2)}
+\fancyhead[R]{\small\sffamily September 17, 2026 (rev.\ 3)}
 \fancyfoot[C]{\small\thepage}
 \newcommand{\code}[1]{\texttt{\small #1}}
 \newcolumntype{L}{>{\raggedright\arraybackslash}X}
@@ -42,12 +42,17 @@ Windows build & UG 2.2.45 (OE49): \code{wolfssl-fips.sln},
   \code{DLL Release | x64}, Visual Studio 2026, no PAA, your supplied
   \code{user\_settings.h} (\code{HAVE\_FIPS\_VERSION 5 / MINOR 2 / PATCH 1}). \\
 Seeding & Custom generate-seed callback registered with
-  \code{wc\_SetSeed\_Cb} (FIPS FAQ \S2): reads OS kernel entropy
-  (\code{getrandom} on Linux, \code{BCryptGenRandom} on Windows), applies
-  SP~800-90B-style RCT (cutoff 31) and APT (325/512) to every seed block,
-  fails closed on any error. Documented under legacy IG~9.3.A; no ESV
-  certificate claimed; caveat ``no assurance of the minimum strength of
-  generated SSPs'' acknowledged. \\
+  \code{wc\_SetSeed\_Cb} (FIPS FAQ \S2). Revised 2026-09-17: the callback
+  reads the processor's \code{RDSEED} instruction (conditioned output of the
+  CPU's SP~800-90B noise source) and delivers it directly to the module's
+  Hash\_DRBG, with SP~800-90B RCT (cutoff 4) and APT (13/512) health tests at
+  $H = 8$ bits/sample and a 1024-sample startup test; fails closed on any
+  error or when RDSEED is absent. Operating system DRBG output
+  (\code{getrandom}, \code{BCryptGenRandom}) is no longer the default: it is
+  an SP~800-90C RBGC chain and is available only by explicit configuration,
+  reported with no security-strength claim. Documented under legacy
+  IG~9.3.A; no ESV certificate claimed; caveat ``no assurance of the minimum
+  strength of generated SSPs'' acknowledged. \\
 Distribution & wolfCrypt as object code only inside Veloce installers;
   notices retained; source confined to a restricted private repository. \\
 \bottomrule
@@ -59,8 +64,11 @@ Distribution & wolfCrypt as object code only inside Veloce installers;
 \begin{enumerate}
   \item The Linux and Windows build configurations above are approved
         configurations for module v5.2.1 under the User Guide / COGM.
-  \item The seeding design above raises no concern for v5.2.1 under legacy
-        IG~9.3.A.
+  \item The revised seeding design above (RDSEED direct to the module
+        DRBG) raises no concern for v5.2.1 under legacy IG~9.3.A, and the
+        earlier operating-system-DRBG seed source is correctly understood as
+        an SP~800-90C RBGC construction that should not be the shipped
+        default.
   \item Authenticode signing of the FIPS DLL or of the MSI installer does
         not interfere with the in-core HMAC-SHA-256 integrity check.
 \end{enumerate}
@@ -78,24 +86,56 @@ Distribution & wolfCrypt as object code only inside Veloce installers;
 
 \section{Please advise on entropy source validation}
 
-Our V1 seed source is OS kernel entropy and is not ESV-capable:
-\code{getrandom} and \code{BCryptGenRandom} return conditioned output, not
-raw noise. Under IG~9.3.A Additional Comment~11 an ESV certificate counts
-only when its number appears on the module certificate and in the security
-policy, so any ESV credit for Veloce depends on the module side.
+Your review noted that \code{getrandom} and \code{BCryptGenRandom} return the
+output of the operating system's SP~800-90A DRBG, so seeding the module DRBG
+from them forms an SP~800-90C RBGC construction whose randomness source is
+not validated on our operational environments, and recommended seeding from
+raw SP~800-90B entropy instead. We have moved the default seed source to
+\code{RDSEED} accordingly. Under IG~9.3.A Additional Comment~11 an ESV
+certificate counts only when its number appears on the module certificate
+and in the security policy, so any ESV credit for Veloce depends on the
+module side. Please advise on the following.
 
 \begin{enumerate}
-  \item The ESV certificate and operating-environment list that will back
-        the v5.2.4 module and the FIPS v7 ``PQ-FS'' module, and whether
-        Windows~11 x86-64 and Ubuntu~24.04 x86-64 will be covered.
-        ESV~\#E335 currently lists one OE (AEDS Software Distribution 2.0,
-        Xeon E3-1275 v6) with reuse restricted to vendor.
-  \item Whether wolfSSL will cite a third-party ESV certificate (a
-        Lightrider-owned entropy source or an IDQ Quantis QRNG) in a
-        wolfCrypt module security policy under a commercial engagement, or
-        alternatively offer an OEM module validation for Lightrider.
-  \item Whether the in-process resubmission of \#4718 for OE49 and OE36
-        changes the module's legacy IG~9.3.A status or its entropy caveat.
+  \item \textbf{RDSEED as the external seed source.} For module v5.2.1
+        under legacy IG~9.3.A, is a generate-seed callback that delivers
+        \code{RDSEED} output directly to the Hash\_DRBG the seed design you
+        recommend? Should the callback apply SP~800-90B RCT/APT health tests
+        (as ours does), condition the output further (for example through a
+        vetted conditioning function with oversampling), or deliver it
+        unmodified? Which entropy estimate per 8-bit sample should the
+        health-test cutoffs assume for Intel and AMD RDSEED?
+  \item \textbf{RDRAND and TPM.} We read \code{RDRAND} and
+        \code{TPM2\_GetRandom} as DRBG outputs, so both would again form
+        RBGC chains, with a FIPS-validated TPM being a chain from a validated
+        RBG. Please confirm or correct, and state whether a validated TPM is
+        an acceptable alternative source where RDSEED is unavailable (arm64,
+        some virtual machines).
+  \item \textbf{Windows CNG.} On Windows~11, \code{BCryptGenRandom} is
+        served by Microsoft's FIPS-validated Cryptographic Primitives
+        Library. Is an RBGC construction from that validated RBG acceptable
+        for the module on OE49, and what documentation would the security
+        policy or user guide expect?
+  \item \textbf{Entropy assessment path.} Whether wolfSSL can point to, or
+        obtain under a commercial engagement, an ESV certificate or an
+        SP~800-90B entropy assessment covering RDSEED on the Windows~11 x86-64
+        (OE49) and Ubuntu x86-64 operational environments, and whether such a
+        certificate would be cited in a wolfCrypt security policy so that
+        IG~9.3.A Additional Comment~11 is satisfied.
+  \item \textbf{ESV coverage of future modules.} The ESV certificate and
+        operating-environment list that will back the v5.2.4 module and the
+        FIPS v7 ``PQ-FS'' module, and whether Windows~11 x86-64 and
+        Ubuntu~24.04 x86-64 will be covered. ESV~\#E335 currently lists one
+        OE (AEDS Software Distribution 2.0, Xeon E3-1275 v6) with reuse
+        restricted to vendor.
+  \item \textbf{Third-party sources.} Whether wolfSSL will cite a
+        third-party ESV certificate (a Lightrider-owned entropy source or an
+        IDQ Quantis QRNG) in a wolfCrypt module security policy under a
+        commercial engagement, or alternatively offer an OEM module
+        validation for Lightrider.
+  \item \textbf{Resubmission effect.} Whether the in-process resubmission of
+        \#4718 for OE49 and OE36 changes the module's legacy IG~9.3.A status
+        or its entropy caveat.
 \end{enumerate}
 
 \section{Please paper on the Order Form}

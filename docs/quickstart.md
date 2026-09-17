@@ -88,10 +88,12 @@ FIPS module (classical algorithms + DRBG, cert #4718):
 int main(void) {
     /* Required wiring (spec 5.1): install the Lightrider seed callback
      * before instantiating the DRBG. The module is built with
-     * WC_RNG_SEED_CB and makes no entropy claim of its own; the callback
-     * reads OS kernel entropy and verifies every block (RCT/APT) before
-     * returning it. The agent installs lightriderSeedCb; wc_GenerateSeed
-     * is shown here only to keep the sample self-contained. */
+     * WC_RNG_SEED_CB and makes no entropy claim of its own; the agent's
+     * callback reads CPU RDSEED hardware entropy and runs SP 800-90B
+     * RCT/APT health tests on every block before returning it. The agent
+     * installs lightriderSeedCb; wc_GenerateSeed (OS DRBG output, an
+     * SP 800-90C chain) is shown here only to keep the sample
+     * self-contained and is not the shipped configuration. */
     wc_SetSeed_Cb(wc_GenerateSeed);
     if (wolfCrypt_GetStatus_fips() != 0) return 1;  /* approved state */
     WC_RNG rng;

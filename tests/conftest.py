@@ -42,6 +42,10 @@ def agent(tmp_path_factory):
         "pqc_lib": os.path.join(PQC_DIR, "libveloce-pqc.so"),
         "pqc_record": os.path.join(PQC_DIR, "build-record.json"),
         "ems": {"mode": "disabled", "endpoint": "", "entropy_mixin": "off"},
+        # Hardware seed source by default; VELOCE_ENTROPY_SOURCE=os-drbg only
+        # on hosts without RDSEED (reported as an unvalidated chain).
+        "entropy": {"source": os.environ.get("VELOCE_ENTROPY_SOURCE",
+                                             "rdseed")},
     }
     cfg_path = str(tmp / "agent.json")
     with open(cfg_path, "w") as f:

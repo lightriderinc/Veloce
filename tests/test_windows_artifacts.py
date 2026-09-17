@@ -67,11 +67,22 @@ def test_wix_package_carries_branding_upgrade_and_ui():
     files = next(package.iter(f"{{{WIX_NS}}}Files"))
     assert files.get("Include") == "$(PayloadDir)\\**"
 
+    # Click to run: the exit dialog launches the installed executable.
+    assert properties.get("WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT") == "Launch Veloce Desktop"
+    assert properties.get("WixShellExecTarget") == "[#VeloceDesktopExe]"
+    action = package.find(f"{{{WIX_NS}}}CustomAction")
+    assert action is not None and action.get("DllEntry") == "WixShellExec"
+    assert action.get("BinaryRef").startswith("Wix4UtilCA_")
+    publish = next(package.iter(f"{{{WIX_NS}}}Publish"))
+    assert publish.get("Dialog") == "ExitDialog" and publish.get("Value") == action.get("Id")
+    assert "NOT Installed" in publish.get("Condition")
+
 
 def test_release_builder_wires_branding_signing_and_checksums():
     text = (WINDOWS / "build-release.ps1").read_text(encoding="utf-8")
     assert '$Version = "1.2.0"' in text
-    for required in ("-ext WixToolset.UI.wixext", "BrandingDir=$Branding",
+    for required in ("-ext WixToolset.UI.wixext", "-ext WixToolset.Util.wixext",
+                     "WixToolset.Util.wixext", "BrandingDir=$Branding",
                      "LicenseRtf=$LicenseRtf", "ProductVersion=$Version",
                      "CertificateThumbprint", "SHA256SUMS-windows-$Arch.txt",
                      "--discovery-only", "--runtime-dir"):
@@ -82,6 +93,18 @@ def test_release_builder_wires_branding_signing_and_checksums():
     assert '"$hash  $(Split-Path -Leaf $artifact)"' in text
 
 
+def test_release_workflow_publishes_click_to_run_packages():
+    text = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    for required in ("tags:", 'v*', "workflow_dispatch", "permissions:", "contents: write",
+                     "build-release.ps1", "-DiscoveryOnly", "windows-x86_64.msi",
+                     "windows-x86_64.zip", "SHA256SUMS-windows-x86_64.txt",
+                     "build-release.sh", "gh release create", "--draft",
+                     "docs/windows-quickstart.md", "docs/release-notes/"):
+        assert required in text, f"release.yml lacks {required}"
+    assert (ROOT / "docs" / "windows-quickstart.md").is_file()
+    assert (ROOT / "docs" / "release-notes" / "1.2.0.md").is_file()
+
+
 def test_windows_fire_up_uses_records_pipe_and_state_dir():
     text = (WINDOWS / "veloce-fire-up.ps1").read_text(encoding="utf-8")
     assert "\\\\.\\pipe\\$PipeName" in text and 'PipeName = "LightRider.PQC.v1"' in text
@@ -90,6 +113,7 @@ def test_windows_fire_up_uses_records_pipe_and_state_dir():
     assert "Lightrider\\Veloce" in text and "LOCALAPPDATA" in text
     assert "--json status" in text and "--json self-test" in text
     assert 'mode = "disabled"' in text and 'entropy_mixin = "off"' in text
+    assert 'source = $(if ($env:VELOCE_ENTROPY_SOURCE)' in text and '"rdseed"' in text
     assert "_internal\\bin" in text  # portable desktop payload layout
 
 

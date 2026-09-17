@@ -1,6 +1,13 @@
 """Gate G1 (spec 10): entropy pipeline, fail-closed state machine, PQC ops
 through the agent, validation-status API."""
+import os
+
 import pytest
+
+# The gate agent is configured for the RDSEED hardware source unless the
+# host lacks it (conftest honours VELOCE_ENTROPY_SOURCE=os-drbg).
+EXPECTED_SOURCE = ("os-drbg" if os.environ.get("VELOCE_ENTROPY_SOURCE") == "os-drbg"
+                   else "cpu-rdseed")
 
 
 def test_health_approved(veloce_sdk):
@@ -8,7 +15,24 @@ def test_health_approved(veloce_sdk):
     assert h["state"] == "ok"
     assert h["approved_mode"] is True
     assert h["entropy"]["healthy"] is True
+    assert h["entropy"]["source_kind"] == EXPECTED_SOURCE
+    assert h["entropy"]["hardware_source"] is (EXPECTED_SOURCE == "cpu-rdseed")
     assert h["fips_module_status"] == 0
+
+
+def test_entropy_source_is_reported_without_overclaiming(veloce_sdk):
+    """SP 800-90C position: the seed source is either an entropy source
+    feeding the DRBG directly (RDSEED) or an explicitly labelled,
+    unvalidated OS DRBG chain. Neither claims an ESV credit."""
+    h = veloce_sdk.health()["entropy"]
+    if EXPECTED_SOURCE == "cpu-rdseed":
+        assert h["rbg_construction"].startswith("SP 800-90B entropy source")
+        assert "RDSEED" in h["source"]
+    else:
+        assert h["rbg_construction"].startswith("SP 800-90C RBGC")
+        assert "unvalidated" in h["source"]
+    assert h["security_strength_claim"].startswith("none")
+    assert "verified_local" not in h
 
 
 def test_version_facts(veloce_sdk):
@@ -27,7 +51,10 @@ def test_validation_status_per_item(veloce_sdk):
     assert items["pqc_provider"]["pqc_inside_fips_boundary"] is False
     assert items["entropy_source"]["name"] == "lightrider-local"
     assert items["entropy_source"]["esv_certified"] is False
-    assert items["entropy_source"]["verified_local"] is True
+    assert items["entropy_source"]["health_tests_passing"] is True
+    assert items["entropy_source"]["source_kind"] == EXPECTED_SOURCE
+    assert items["entropy_source"]["health_tests"].startswith("SP 800-90B RCT (cutoff 4) + APT (13/512)")
+    assert "verified_local" not in items["entropy_source"]
     assert items["cloud_entropy_mixin"]["state"] == "off"
     assert items["cloud_entropy_mixin"]["credited"] is False
 
@@ -36,7 +63,8 @@ def test_entropy_provider_specs(veloce_sdk):
     providers = veloce_sdk.list_entropy_providers()["providers"]
     local = next(p for p in providers if p["name"] == "lightrider-local")
     assert local["esv_certified"] is False
-    assert local["verified_local"] is True
+    assert local["health_tests_passing"] is True
+    assert local["source_kind"] == EXPECTED_SOURCE
     assert local["credited"] is True
     assert local["drbg"].startswith("SP 800-90A Hash_DRBG")
     # The DRBG was seeded at startup through the verified callback.

@@ -40,6 +40,30 @@ the local API are unchanged; the page gained `/favicon.svg`.
 `tests/test_windows_artifacts.py` locks the Windows artifacts and the page
 contract. Native execution of the Windows runtime remains an open item.
 
+### Entropy seed source moved to CPU RDSEED (2026-09-17)
+
+Review finding: the 1.1.0 seed callback read `getrandom()` and
+`BCryptGenRandom`, which return operating system DRBG output. Seeding the
+module's SP 800-90A DRBG from another DRBG is an SP 800-90C RBGC
+construction, and on generic operating environments the operating system
+RBG is not validated, so no security strength could be claimed for the
+chain. The RCT/APT tests applied to that output were not an entropy
+assessment, and the `entropy_verified_local: true` label overstated the
+position.
+
+Implemented: `entropy.source` selects `rdseed` (default) or `os-drbg`.
+RDSEED delivers the processor's SP 800-90B conditioned entropy directly to
+the module DRBG; the callback runs SP 800-90B RCT (cutoff 4) and APT
+(13/512) at H = 8 bits/sample with a 1024-sample startup test, fail-closed,
+and refuses to run when the processor lacks RDSEED. `os-drbg` is explicit
+opt-in (arm64 macOS, development) and is reported as an unvalidated
+SP 800-90C chain with no security-strength claim. Status, validation,
+providers, CBOM, banner, CLI, and desktop UI expose `source_kind`,
+`rbg_construction`, and `security_strength_claim`; `verified_local` is
+removed. No ESV certificate is claimed for either source; the question of
+which source wolfSSL will accept for the legacy IG 9.3.A module is in
+`plan/wolfssl-next-steps.pdf`.
+
 ## 1.1.0: the macOS track is implemented
 
 macOS moved from "desktop discovery-only" to a full platform track
@@ -113,6 +137,10 @@ wolfSSL source leaks in.
   request/response entropy path Veloce uses first is unaffected.
 - Commercial coverage of the public-tree PQC sources: wolfSSL confirmation
   still outstanding (see deviations below).
+- Entropy source acceptance: wolfSSL position on RDSEED direct seeding
+  versus an OS DRBG chain for the legacy IG 9.3.A module, and any ESV or
+  entropy-assessment path for RDSEED on the Windows 11 and Ubuntu OEs
+  (plan/wolfssl-next-steps.pdf section 4).
 
 ## Standing engineering decisions
 

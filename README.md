@@ -7,10 +7,10 @@ Veloce V1 delivers two products in one SDK:
   inventory fields, executive summary.
 - **Crypto core**: a local agent embedding the wolfCrypt FIPS 140-3 module
   (CMVP certificate #4718, module v5.2.1) seeded exclusively by the
-  Lightrider local entropy provider (OS kernel entropy with RCT/APT
-  verification on every seed block, fail-closed), with ML-KEM-768 and
-  ML-DSA-65 provided beside the FIPS boundary, consumed from a pure-Python
-  SDK and a CLI over authenticated local IPC. Optional EMS cloud connectivity is off
+  Lightrider local entropy provider (CPU RDSEED hardware entropy with
+  SP 800-90B RCT/APT health tests on every seed block, fail-closed), with
+  ML-KEM-768 and ML-DSA-65 provided beside the FIPS boundary, consumed from
+  a pure-Python SDK and a CLI over authenticated local IPC. Optional EMS cloud connectivity is off
   by default with a zero-network-traffic guarantee.
 
 The authoritative implementation spec is
@@ -20,7 +20,10 @@ The authoritative implementation spec is
 
 The current Veloce release is publicly downloadable and free to use under
 the included Lightrider Inc license; no client subscription is required for
-this archived version. Future managed services, enterprise features,
+this archived version. Windows and macOS users download a ready-to-run
+package from the GitHub Releases page
+(https://github.com/lightriderinc/Veloce/releases); no build step is
+required. Windows instructions: [`docs/windows-quickstart.md`](docs/windows-quickstart.md). Future managed services, enterprise features,
 support, updates, or client releases may require a paid subscription.
 "Publicly downloadable" does not mean OSI open source and does not override
 the terms in [`LICENSE`](LICENSE).

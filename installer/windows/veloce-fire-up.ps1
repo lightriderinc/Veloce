@@ -101,6 +101,9 @@ $ConfigObject = [ordered]@{
     pqc_lib     = $PqcLib
     pqc_record  = $PqcRecordPath
     ems         = [ordered]@{ mode = "disabled"; endpoint = ""; entropy_mixin = "off" }
+    # rdseed: CPU hardware entropy (default). os-drbg: BCryptGenRandom output,
+    # an unvalidated SP 800-90C chain with no security-strength claim.
+    entropy     = [ordered]@{ source = $(if ($env:VELOCE_ENTROPY_SOURCE) { $env:VELOCE_ENTROPY_SOURCE } else { "rdseed" }) }
 }
 $ConfigJson = $ConfigObject | ConvertTo-Json -Depth 4
 [System.IO.File]::WriteAllText($Config, $ConfigJson + "`n", (New-Object System.Text.UTF8Encoding($false)))

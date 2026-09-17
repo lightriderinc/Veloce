@@ -277,8 +277,12 @@ Value healthValue() {
     v.set("approved_mode", approved);
     v.set("fips_module_status", g_agent.fips.moduleStatus());
     Value entropy = Value::object();
-    entropy.set("source",
-                "lightrider-local (OS kernel entropy + RCT/APT verification)");
+    entropy.set("source", g_agent.fips.seedSourceDescription());
+    entropy.set("source_kind", g_agent.fips.seedSourceKind());
+    entropy.set("hardware_source", g_agent.fips.seedSourceIsHardware());
+    entropy.set("rbg_construction", g_agent.fips.rbgConstruction());
+    entropy.set("security_strength_claim",
+                g_agent.fips.securityStrengthClaim());
     entropy.set("healthy", g_agent.startup.entropyOk && g_agent.fips.ok());
     entropy.set("fail_mode", "fail-closed (seed callback)");
     entropy.set("seed_blocks_verified",
@@ -343,15 +347,24 @@ Value validationStatusValue() {
     Value ent = Value::object();
     ent.set("item", "entropy_source");
     ent.set("name", "lightrider-local");
+    ent.set("source_kind", g_agent.fips.seedSourceKind());
+    ent.set("hardware_source", g_agent.fips.seedSourceIsHardware());
+    ent.set("rbg_construction", g_agent.fips.rbgConstruction());
     ent.set("esv_certified", false);
-    ent.set("verified_local", true);
-    ent.set("note", "OS kernel entropy via registered seed callback "
-                    "(wc_SetSeed_Cb); no ESV certificate exists for module "
-                    "v5.2.1; legacy IG 9.3.A applies (wolfSSL confirmation "
-                    "2026-08-27); Lightrider RCT/APT verification on every "
-                    "seed block is engineering assurance, not an ESV credit");
+    ent.set("security_strength_claim",
+            g_agent.fips.securityStrengthClaim());
+    ent.set("health_tests_passing",
+            g_agent.startup.entropyOk && g_agent.fips.ok());
+    ent.set("health_tests", veloce::FipsCore::healthTestSpec());
+    ent.set("note", "External seed source registered with wc_SetSeed_Cb as "
+                    "the #4718 security policy requires; the module makes "
+                    "no entropy claim (SP section 2.8) and legacy IG 9.3.A "
+                    "applies (wolfSSL 2026-08-27). No ESV certificate is "
+                    "claimed for any source; health tests are engineering "
+                    "assurance, not an ESV credit");
     ent.set("health", g_agent.startup.entropyOk && g_agent.fips.ok()
-                          ? "RCT + APT passing"
+                          ? "RCT + APT passing (" +
+                                g_agent.fips.seedSourceKind() + ")"
                           : "failed (fail-closed)");
     items.push(std::move(ent));
 
@@ -477,8 +490,9 @@ Value cbomCycloneDx() {
 
     Value ent = Value::object();
     ent.set("type", "cryptographic-asset");
-    ent.set("name",
-            "Lightrider local entropy provider (OS kernel + RCT/APT)");
+    ent.set("name", "Lightrider local entropy provider (" +
+                        g_agent.fips.seedSourceKind() +
+                        " + SP 800-90B RCT/APT health tests)");
     Value entProps = Value::object();
     entProps.set("assetType", "related-crypto-material");
     ent.set("cryptoProperties", std::move(entProps));
@@ -630,13 +644,22 @@ bool dispatch(const std::string& op, const Value& params, Value& result,
         Value arr = Value::array();
         Value w = Value::object();
         w.set("name", "lightrider-local");
-        w.set("type", "OS kernel entropy + Lightrider RCT/APT verification");
+        w.set("type", g_agent.fips.seedSourceIsHardware()
+                          ? "CPU RDSEED hardware entropy + SP 800-90B "
+                            "RCT/APT health tests"
+                          : "OS DRBG output (SP 800-90C RBGC chain, "
+                            "unvalidated) + RCT/APT sanity check");
+        w.set("source_kind", g_agent.fips.seedSourceKind());
+        w.set("hardware_source", g_agent.fips.seedSourceIsHardware());
+        w.set("rbg_construction", g_agent.fips.rbgConstruction());
         w.set("esv_certified", false);
-        w.set("verified_local", true);
+        w.set("security_strength_claim",
+              g_agent.fips.securityStrengthClaim());
+        w.set("health_tests_passing",
+              g_agent.startup.entropyOk && g_agent.fips.ok());
         w.set("credited", true);
         w.set("drbg", "SP 800-90A Hash_DRBG (SHA-256), 256-bit strength");
-        w.set("health_tests", "RCT (cutoff 31) + APT (325/512), "
-                              "startup + continuous, fail-closed");
+        w.set("health_tests", veloce::FipsCore::healthTestSpec());
         w.set("seed_blocks_verified",
               static_cast<int64_t>(veloce::FipsCore::seedBlocksVerified()));
         w.set("seed_bytes_verified",
@@ -1040,8 +1063,11 @@ void printBanner(bool quiet) {
     std::string status = std::string("FIPS 140-3 ") +
         g_agent.fipsRecord.getString("fips_certificate", "#4718") +
         " | entropy: " +
-        (g_agent.startup.entropyOk && g_agent.fips.ok() ? "verified (local)"
-                                                        : "FAILED") +
+        (g_agent.startup.entropyOk && g_agent.fips.ok()
+             ? (g_agent.fips.seedSourceIsHardware()
+                    ? std::string("RDSEED (health-tested)")
+                    : std::string("OS DRBG (unvalidated chain)"))
+             : std::string("FAILED")) +
         " | approved mode: " + (g_agent.approvedMode() ? "on" : "off");
     std::string line1 = std::string("Lightrider Inc -- Veloce PQC SDK v") +
                         kAgentVersion;
@@ -1098,6 +1124,11 @@ int main(int argc, char** argv) {
         g_agent.ems.entropyMixin =
             ems->getString("entropy_mixin", "off") == "on";
     }
+    // Seed source (spec 5.1): "rdseed" (default, hardware) or "os-drbg"
+    // (explicit opt-in, unvalidated SP 800-90C chain). No fallback.
+    std::string entropySource = "rdseed";
+    if (const Value* ent = cfg.find("entropy"))
+        entropySource = ent->getString("source", "rdseed");
     g_agent.startedAt = time(nullptr);
 
     if (!fipsRecordPath.empty())
@@ -1118,7 +1149,10 @@ int main(int argc, char** argv) {
         g_agent.recordError(err);
     } else {
         g_agent.startup.fipsLoaded = true;
-        if (!g_agent.fips.start(err)) {
+        if (!g_agent.fips.setSeedSource(entropySource, err)) {
+            g_agent.startup.detail = err;
+            g_agent.recordError(err);
+        } else if (!g_agent.fips.start(err)) {
             g_agent.startup.detail = err;
             g_agent.recordError(err);
         } else {

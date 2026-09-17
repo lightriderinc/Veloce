@@ -43,6 +43,9 @@ def test_macos_fire_up_is_valid_and_wires_dylib_names():
     assert "wolfcrypt-fips.build-record.json" in text
     assert "veloce-pqc.build-record.json" in text
     assert "--launchd" in text
+    # arm64 has no RDSEED: the launcher must select the seed source explicitly.
+    assert '"entropy": {"source": entropy_source}' in text
+    assert "os-drbg" in text and "rdseed" in text
     assert 'ems": {"mode": "disabled"' in text.replace("'", '"') or \
         '"mode": "disabled"' in text
 

@@ -140,12 +140,14 @@ if (-not $SkipMsi) {
     if (-not $Wix) {
         throw "WiX v5 is required for MSI output (dotnet tool install --global wix); or pass -SkipMsi"
     }
-    # The UI extension must match the installed WiX version.
+    # The UI and Util extensions must match the installed WiX version.
     $WixVersion = ((& $Wix.Source --version) | Select-Object -First 1).Split("+")[0].Trim()
-    & $Wix.Source extension add -g "WixToolset.UI.wixext/$WixVersion" 2>$null
-    if ($LASTEXITCODE -ne 0) {
-        & $Wix.Source extension add -g WixToolset.UI.wixext
-        if ($LASTEXITCODE -ne 0) { throw "cannot add WixToolset.UI.wixext" }
+    foreach ($extension in @("WixToolset.UI.wixext", "WixToolset.Util.wixext")) {
+        & $Wix.Source extension add -g "$extension/$WixVersion" 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            & $Wix.Source extension add -g $extension
+            if ($LASTEXITCODE -ne 0) { throw "cannot add $extension" }
+        }
     }
 
     $Msi = Join-Path $Dist "veloce-$Version-windows-$Arch.msi"
@@ -153,6 +155,7 @@ if (-not $SkipMsi) {
         (Join-Path $PSScriptRoot "veloce.wxs") `
         -arch x64 `
         -ext WixToolset.UI.wixext `
+        -ext WixToolset.Util.wixext `
         -d "PayloadDir=$Payload" `
         -d "ProductVersion=$Version" `
         -d "BrandingDir=$Branding" `

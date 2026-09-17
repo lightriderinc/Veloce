@@ -59,6 +59,20 @@ def _user_state_dir(system: Optional[str] = None) -> Path:
     return Path.home() / ".veloce"
 
 
+def _default_entropy_source(machine: Optional[str] = None) -> str:
+    machine = (machine or platform.machine()).lower()
+    return "rdseed" if machine in ("x86_64", "amd64", "x64") else "os-drbg"
+
+
+def _discovery_only_message(manifest: Optional[Dict[str, Any]],
+                            default: str) -> str:
+    if manifest and manifest.get("mode") == "discovery-only":
+        return ("This release is discovery-only: qSearch is fully available, "
+                "the FIPS runtime is not packaged, and the dashboard shows no "
+                "live data by design.")
+    return default
+
+
 def find_tool(name: str, env_name: str) -> Optional[Path]:
     """Find a packaged/native tool without using a shell search path blindly."""
     candidates: List[Path] = []
@@ -273,6 +287,9 @@ class DesktopService:
             "pqc_lib": str(pqc_library.resolve()),
             "pqc_record": str(pqc_record_path.resolve()),
             "ems": {"mode": "disabled", "endpoint": "", "entropy_mixin": "off"},
+            # rdseed: CPU hardware entropy on x86-64. os-drbg (arm64 only):
+            # OS DRBG output, an unvalidated SP 800-90C chain, no strength claim.
+            "entropy": {"source": _default_entropy_source()},
         }
         config_path = state / "agent.json"
         config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
@@ -311,7 +328,9 @@ class DesktopService:
             "validation": None,
             "fips_record": fips_record,
             "pqc_record": pqc_record,
-            "message": "Veloce native agent is not installed or not running.",
+            "message": _discovery_only_message(
+                self._release_manifest(),
+                "Veloce native agent is not installed or not running."),
         }
         cli = find_tool("veloce", "VELOCE_CLI")
         if cli is None:
@@ -357,7 +376,9 @@ class DesktopService:
             "providers": [],
             "mixin": {"state": "off", "last_mixin": "never"},
             "ems_mode": "disabled",
-            "message": "Veloce native agent is not installed or not running.",
+            "message": _discovery_only_message(
+                self._release_manifest(),
+                "Veloce native agent is not installed or not running."),
         }
         cli = find_tool("veloce", "VELOCE_CLI")
         if cli is None:

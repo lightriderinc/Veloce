@@ -56,6 +56,15 @@ python3 desktop/veloce_desktop.py                       # from the repo
 bash installer/macos/build-release.sh --discovery-only  # packaged .app/DMG
 ```
 
+## Entropy seed source
+
+Intel Macs expose RDSEED and use the hardware seed source. Apple silicon
+does not implement RDSEED, so the launchers and the desktop app configure
+`entropy.source: os-drbg` on arm64: operating system DRBG output, an
+SP 800-90C RBGC chain that the agent reports with no security-strength
+claim. Combined with the absence of a macOS OE, an arm64 macOS runtime is a
+development and discovery platform only.
+
 ## Validation posture
 
 The build record carries

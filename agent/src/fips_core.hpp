@@ -26,10 +26,26 @@ public:
     bool load(const std::string& libPath, const std::string& expectedSha256Hex,
               std::string& err);
 
-    // Register the Lightrider seed callback (wc_SetSeed_Cb) and
+    // Select the seed source before start(): "rdseed" (default; x86-64
+    // RDSEED hardware entropy, fails closed when the processor lacks it)
+    // or "os-drbg" (operating system DRBG output; an SP 800-90C RBGC
+    // chain with no security-strength claim, explicit opt-in only).
+    bool setSeedSource(const std::string& name, std::string& err);
+    static bool rdseedAvailable();
+
+    // Reporting helpers for status, validation, CBOM, and banner output.
+    std::string seedSourceKind() const;        // "cpu-rdseed" | "os-drbg" | "none"
+    std::string seedSourceDescription() const;
+    std::string rbgConstruction() const;
+    std::string securityStrengthClaim() const;
+    bool seedSourceIsHardware() const;
+    static std::string healthTestSpec();
+
+    // Run the SP 800-90B startup health test on the selected source,
+    // register the Lightrider seed callback (wc_SetSeed_Cb) and
     // instantiate the DRBG. The module makes no entropy claim (#4718 SP
-    // 11.1); every seed block comes from the OS kernel entropy interface
-    // and passes RCT/APT verification before delivery. Fail-closed.
+    // section 2.8); every seed block passes RCT/APT before delivery.
+    // Fail-closed.
     bool start(std::string& err);
 
     // wolfCrypt_GetStatus_fips(); 0 means the module is in the approved
@@ -39,8 +55,8 @@ public:
     // wc_RunAllCast_fips(): run all conditional algorithm self-tests.
     bool runCasts(std::string& err);
 
-    // On-demand health test: draw a fresh sample from the OS kernel
-    // entropy source and run the same RCT/APT verification used on the
+    // On-demand health test: draw a fresh 1024-sample block from the
+    // selected seed source and run the same RCT/APT tests used on the
     // seed path. Does not touch the DRBG.
     bool entropySelfTest(std::string& detail);
 

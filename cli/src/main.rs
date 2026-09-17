@@ -243,9 +243,17 @@ fn print_banner(quiet: bool, json_mode: bool) {
         Ok(resp) => {
             let approved = extract(&resp, "approved_mode").unwrap_or("unknown");
             let entropy = extract(&resp, "healthy").unwrap_or("unknown");
+            let source = extract(&resp, "source_kind").unwrap_or("unknown");
+            let entropy_label = if entropy != "true" {
+                "FAILED"
+            } else if source == "cpu-rdseed" {
+                "RDSEED (health-tested)"
+            } else {
+                "OS DRBG (unvalidated chain)"
+            };
             println!(
                 "FIPS 140-3 #4718 | entropy: {} | approved mode: {}",
-                if entropy == "true" { "verified (local)" } else { "FAILED" },
+                entropy_label,
                 if approved == "true" { "on" } else { "off" }
             );
         }

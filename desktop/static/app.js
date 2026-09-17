@@ -102,7 +102,7 @@ function renderFips(snapshot) {
   const entropy = status.entropy || {};
   setText("entropy-value", snapshot.live ? (entropy.healthy ? "HEALTHY" : "FAILED") : "NO LIVE DATA");
   setValueState("entropy-value", snapshot.live ? (entropy.healthy ? "good" : "bad") : "warn");
-  setText("entropy-detail", entropy.source || record.entropy_source || "wolfEntropy record unavailable");
+  setText("entropy-detail", entropy.source || record.entropy_source || "Entropy record unavailable");
 
   const pqcOk = status.pqc_provider && String(status.pqc_provider).includes("passed");
   setText("pqc-value", snapshot.live ? (pqcOk ? "PASSED" : "UNAVAILABLE") : "NO LIVE DATA");
@@ -180,9 +180,12 @@ function renderEntropy(snapshot) {
   setText("entropy-message", snapshot.message);
   const local = (snapshot.providers || []).find((p) => p.name === "lightrider-local") || {};
   const healthy = snapshot.live && local.health === "ok";
-  setText("provider-value", snapshot.live ? (healthy ? "VERIFIED" : "FAILED") : "NO LIVE DATA");
-  setValueState("provider-value", snapshot.live ? (healthy ? "good" : "bad") : "warn");
-  setText("provider-detail", local.type || "Local seed provider");
+  const hardware = local.hardware_source === true;
+  setText("provider-value", snapshot.live ? (healthy ? (hardware ? "RDSEED" : "OS DRBG") : "FAILED") : "NO LIVE DATA");
+  setValueState("provider-value", snapshot.live ? (healthy ? (hardware ? "good" : "warn") : "bad") : "warn");
+  setText("provider-detail", snapshot.live
+    ? (hardware ? "Hardware entropy, health tests passing" : "Unvalidated OS DRBG chain, no strength claim")
+    : "Local seed provider");
   setText("blocks-value", snapshot.live ? local.seed_blocks_verified : "—");
   setText("failures-value", snapshot.live ? local.seed_health_failures : "—");
   setValueState("failures-value", snapshot.live ? (local.seed_health_failures === 0 ? "good" : "bad") : "warn");
@@ -192,10 +195,13 @@ function renderEntropy(snapshot) {
   specs.replaceChildren();
   addRecordRow(specs, "Provider", local.name || "lightrider-local");
   addRecordRow(specs, "Source", local.type);
+  addRecordRow(specs, "Source kind", local.source_kind);
+  addRecordRow(specs, "Construction", local.rbg_construction);
   addRecordRow(specs, "DRBG", local.drbg);
   addRecordRow(specs, "Health tests", local.health_tests);
   addRecordRow(specs, "Bytes verified", snapshot.live ? String(local.seed_bytes_verified) : "");
-  addRecordRow(specs, "ESV certified", local.esv_certified === false ? "No (legacy IG 9.3.A; locally verified)" : "");
+  addRecordRow(specs, "ESV certified", local.esv_certified === false ? "No (legacy IG 9.3.A applies)" : "");
+  addRecordRow(specs, "Strength claim", local.security_strength_claim);
 
   const mixinOn = snapshot.mixin && snapshot.mixin.state === "on";
   setText("mixin-state", mixinOn ? "on" : "off");
