@@ -40,22 +40,34 @@ param(
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 # ------------------------------------------------------------ toolchain
-$Python = Get-Command py -ErrorAction SilentlyContinue
-$PythonLauncherArgs = @("-3")
+# Prefer the interpreter on PATH (the one `python -m pip install -r
+# desktop\requirements-build.txt` targeted, and the one actions/setup-python
+# provides in CI); fall back to the `py -3` launcher. The Microsoft Store
+# alias stub fails the version probe and is skipped.
+function Test-Python3([string]$Exe, [string[]]$LauncherArgs) {
+    try {
+        $major = & $Exe @LauncherArgs -c "import sys; print(sys.version_info[0])" 2>$null
+        return ($LASTEXITCODE -eq 0 -and "$major".Trim() -eq "3")
+    } catch { return $false }
+}
+$Python = $null
+$PythonLauncherArgs = @()
+$candidate = Get-Command python -ErrorAction SilentlyContinue
+if ($candidate -and (Test-Python3 $candidate.Source @())) { $Python = $candidate }
 if (-not $Python) {
-    $Python = Get-Command python -ErrorAction SilentlyContinue
-    $PythonLauncherArgs = @()
+    $candidate = Get-Command py -ErrorAction SilentlyContinue
+    if ($candidate -and (Test-Python3 $candidate.Source @("-3"))) {
+        $Python = $candidate
+        $PythonLauncherArgs = @("-3")
+    }
 }
 if (-not $Python) {
-    throw "Python 3 is required; install it from https://www.python.org/downloads/windows/ and reopen PowerShell"
+    throw "Python 3 is required; install it from https://www.python.org/downloads/windows/, disable the Microsoft Store Python app-execution aliases if necessary, and reopen PowerShell"
 }
-try {
-    & $Python.Source @PythonLauncherArgs --version | Out-Null
-} catch {
-    throw "Unable to run Python 3. Install it from https://www.python.org/downloads/windows/, disable the Microsoft Store Python app-execution aliases if necessary, and reopen PowerShell"
-}
+& $Python.Source @PythonLauncherArgs -c "import PyInstaller" 2>$null
 if ($LASTEXITCODE -ne 0) {
-    throw "Unable to run Python 3; reinstall Python and reopen PowerShell"
+    $pipHint = "$($Python.Source) $($PythonLauncherArgs -join ' ') -m pip install -r desktop\requirements-build.txt"
+    throw "PyInstaller is not installed for $($Python.Source); run: $pipHint"
 }
 $Cargo = Get-Command cargo -ErrorAction SilentlyContinue
 if (-not $Cargo) {
