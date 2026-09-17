@@ -112,7 +112,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          path: assets
+          # Not assets/: that is the repository's branding directory.
+          path: release-assets
           merge-multiple: true
       - name: Compose release notes
         env:
@@ -126,7 +127,7 @@ jobs:
             echo
             cat docs/windows-quickstart.md
           } > release-body.md
-          ls -la assets
+          ls -la release-assets
       - name: Create or update the draft release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -134,10 +135,10 @@ jobs:
         run: |
           tag="v${VERSION}"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$tag" assets/* --clobber --repo "$GITHUB_REPOSITORY"
+            gh release upload "$tag" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
             gh release edit "$tag" --notes-file release-body.md --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$tag" assets/* \
+            gh release create "$tag" release-assets/* \
               --draft \
               --title "Veloce PQC SDK ${VERSION}" \
               --notes-file release-body.md \
