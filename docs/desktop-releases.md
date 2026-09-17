@@ -257,9 +257,29 @@ build/dist/veloce-1.2.0-macos-arm64.dmg
 ```
 
 When `VELOCE_CODESIGN_IDENTITY` is absent, the script creates an ad-hoc signed
-development app. Set both signing variables for a distribution build; the
-script signs the app and DMG, submits the DMG with `notarytool`, and staples the
-ticket.
+development app, and Gatekeeper blocks its first launch with "Apple could not
+verify Veloce is free of malware" until the user allows it under System
+Settings, Privacy & Security (`docs/macos-quickstart.md`). Set both signing
+variables for a distribution build; the script signs the app and DMG,
+submits the DMG with `notarytool`, staples the ticket, and verifies it with
+`stapler validate` and `spctl`. `VELOCE_NOTARY_KEYCHAIN` names the keychain
+holding the notary profile when it is not the login keychain. The DMG
+contains `Veloce.app`, an `Applications` shortcut, and
+`How to open Veloce.txt` written for the build type.
+
+The `Release` workflow signs and notarizes automatically when these
+repository secrets exist (set them with `gh secret set <NAME>`):
+
+| Secret | Content |
+|---|---|
+| `APPLE_CERTIFICATE_P12_BASE64` | Developer ID Application certificate with private key, exported as `.p12` and base64-encoded |
+| `APPLE_CERTIFICATE_PASSWORD` | Password of that `.p12` |
+| `APPLE_ID` | Apple Developer account e-mail |
+| `APPLE_TEAM_ID` | Ten-character team identifier |
+| `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password generated at appleid.apple.com for `notarytool` |
+
+Without the secrets the job prints a warning and produces the ad-hoc build.
+The certificate requires an Apple Developer Program membership.
 
 ## Agent build portability
 

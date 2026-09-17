@@ -89,13 +89,61 @@ jobs:
       - name: Detect architecture
         id: arch
         run: echo "value=$(uname -m)" >> "$GITHUB_OUTPUT"
-      - name: Build ad-hoc-signed discovery DMG
+      # Gatekeeper: with the Apple secrets below the DMG is Developer ID
+      # signed and notarized and opens without a prompt. Without them the
+      # build is ad-hoc signed and the DMG carries "How to open Veloce.txt".
+      #   APPLE_CERTIFICATE_P12_BASE64   Developer ID Application cert + key (.p12, base64)
+      #   APPLE_CERTIFICATE_PASSWORD     password of that .p12
+      #   APPLE_ID, APPLE_TEAM_ID        Apple Developer account and team
+      #   APPLE_APP_SPECIFIC_PASSWORD    app-specific password for notarytool
+      - name: Prepare Developer ID signing and notarization
+        env:
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE_P12_BASE64" ] || [ -z "$APPLE_ID" ] || [ -z "$APPLE_TEAM_ID" ] || [ -z "$APPLE_APP_SPECIFIC_PASSWORD" ]; then
+            echo "::warning::Apple signing secrets not set; producing an ad-hoc signed DMG that Gatekeeper prompts on first open"
+            exit 0
+          fi
+          KEYCHAIN="$RUNNER_TEMP/veloce-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo "$APPLE_CERTIFICATE_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/developer-id.p12"
+          security import "$RUNNER_TEMP/developer-id.p12" -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          rm -f "$RUNNER_TEMP/developer-id.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
+          identity="$(security find-identity -v -p codesigning "$KEYCHAIN" | grep 'Developer ID Application' | head -1 | sed -E 's/.*"(.*)".*/\1/')"
+          if [ -z "$identity" ]; then echo "::error::no Developer ID Application identity in the certificate"; exit 1; fi
+          xcrun notarytool store-credentials lightrider-notary \
+            --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" --keychain "$KEYCHAIN"
+          {
+            echo "VELOCE_CODESIGN_IDENTITY=$identity"
+            echo "VELOCE_NOTARY_PROFILE=lightrider-notary"
+            echo "VELOCE_NOTARY_KEYCHAIN=$KEYCHAIN"
+            echo "VELOCE_SIGNING_KEYCHAIN=$KEYCHAIN"
+          } >> "$GITHUB_ENV"
+          echo "Developer ID signing and notarization enabled"
+      - name: Build discovery DMG
         run: |
           installer/macos/build-release.sh \
             --version "${{ steps.version.outputs.value }}" \
             --arch "${{ steps.arch.outputs.value }}" \
             --discovery-only
           cd build/dist && shasum -a 256 veloce-*.dmg > SHA256SUMS-macos-${{ steps.arch.outputs.value }}.txt
+      - name: Remove the signing keychain
+        if: always()
+        run: |
+          if [ -n "${VELOCE_SIGNING_KEYCHAIN:-}" ] && [ -f "$VELOCE_SIGNING_KEYCHAIN" ]; then
+            security delete-keychain "$VELOCE_SIGNING_KEYCHAIN"
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: macos-${{ steps.arch.outputs.value }}
@@ -126,6 +174,10 @@ jobs:
             echo "---"
             echo
             cat docs/windows-quickstart.md
+            echo
+            echo "---"
+            echo
+            cat docs/macos-quickstart.md
           } > release-body.md
           ls -la release-assets
       - name: Create or update the draft release

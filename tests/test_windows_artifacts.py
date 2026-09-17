@@ -103,9 +103,13 @@ def test_release_workflow_publishes_click_to_run_packages():
                      "build-release.ps1", "-DiscoveryOnly", "windows-x86_64.msi",
                      "windows-x86_64.zip", "SHA256SUMS-windows-x86_64.txt",
                      "build-release.sh", "gh release create", "--draft",
-                     "docs/windows-quickstart.md", "docs/release-notes/"):
+                     "docs/windows-quickstart.md", "docs/macos-quickstart.md",
+                     "docs/release-notes/", "APPLE_CERTIFICATE_P12_BASE64",
+                     "APPLE_APP_SPECIFIC_PASSWORD", "notarytool store-credentials",
+                     "security delete-keychain"):
         assert required in text, f"release.yml lacks {required}"
     assert (ROOT / "docs" / "windows-quickstart.md").is_file()
+    assert (ROOT / "docs" / "macos-quickstart.md").is_file()
     assert (ROOT / "docs" / "release-notes" / "1.2.0.md").is_file()
 
 
