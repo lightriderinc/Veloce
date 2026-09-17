@@ -23,14 +23,22 @@ def main() -> int:
 
     fips_dir = os.path.join(ROOT, "build", "lib", "fips")
     pqc_dir = os.path.join(ROOT, "build", "lib", "pqc")
-    fips_libs = sorted(glob.glob(os.path.join(fips_dir, "libwolfssl.so.*.*.*")))
+    if sys.platform == "darwin":
+        fips_glob = "libwolfssl.*.dylib"
+        pqc_name = "libveloce-pqc.dylib"
+        build_hint = "scripts/build_macos.sh"
+    else:
+        fips_glob = "libwolfssl.so.*.*.*"
+        pqc_name = "libveloce-pqc.so"
+        build_hint = "scripts/build_fips.sh"
+    fips_libs = sorted(glob.glob(os.path.join(fips_dir, fips_glob)))
     if not fips_libs:
-        print("gen_config: FIPS library not staged; run scripts/build_fips.sh",
+        print(f"gen_config: FIPS library not staged; run {build_hint}",
               file=sys.stderr)
         return 1
-    pqc_lib = os.path.join(pqc_dir, "libveloce-pqc.so")
+    pqc_lib = os.path.join(pqc_dir, pqc_name)
     if not os.path.exists(pqc_lib):
-        print("gen_config: PQC provider not staged; run scripts/build_pqc.sh",
+        print(f"gen_config: PQC provider not staged; run {build_hint}",
               file=sys.stderr)
         return 1
 

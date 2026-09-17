@@ -17,16 +17,15 @@
 // emitted as findings instead of being silently hidden.
 use crate::sha256;
 use crate::Finding;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
-#[cfg(any(target_os = "linux", target_os = "windows"))]
 use std::path::PathBuf;
 use std::process::Command;
 
 // (needle in file name, product, classification, risk)
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 const LIB_PATTERNS: &[(&str, &str)] = &[
     ("libcrypto", "OpenSSL libcrypto"),
     ("libssl", "OpenSSL libssl"),
@@ -45,7 +44,7 @@ const LIB_PATTERNS: &[(&str, &str)] = &[
     ("libargon2", "Argon2"),
 ];
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn lib_product(file_name: &str) -> Option<&'static str> {
     LIB_PATTERNS
         .iter()
@@ -149,7 +148,7 @@ fn collect_libraries(findings: &mut Vec<Finding>) {
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn collect_lib_dir(dir: &Path, depth: u32, seen: &mut BTreeSet<PathBuf>) {
     if depth > 3 {
         return;
@@ -163,7 +162,7 @@ fn collect_lib_dir(dir: &Path, depth: u32, seen: &mut BTreeSet<PathBuf>) {
         if path.is_dir() {
             collect_lib_dir(&path, depth + 1, seen);
         } else if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-            if lib_product(name).is_some() && name.contains(".so") {
+            if lib_product(name).is_some() && (name.contains(".so") || name.ends_with(".dylib")) {
                 if let Ok(real) = fs::canonicalize(&path) {
                     seen.insert(real);
                 }
@@ -259,8 +258,9 @@ fn collect_kernel(findings: &mut Vec<Finding>) {
 }
 
 // --------------------------------------------------------------------- ssh
+// /etc/ssh has the same layout on Linux and macOS; shared collector.
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn collect_ssh(findings: &mut Vec<Finding>) {
     let dir = Path::new("/etc/ssh");
     let entries = match fs::read_dir(dir) {
@@ -647,6 +647,101 @@ fn collect_macos_libraries(findings: &mut Vec<Finding>) {
             "macOS cryptography library or framework".to_string(),
         );
     }
+
+    // Sweep on-disk dylib locations with the shared crypto-library patterns.
+    // Apple system libraries live inside the dyld shared cache and have no
+    // on-disk file on modern macOS; that limit is reported explicitly below.
+    let mut seen: BTreeSet<PathBuf> = BTreeSet::new();
+    for dir in [
+        "/usr/local/lib",
+        "/opt/homebrew/lib",
+        "/opt/local/lib",
+        "/opt/veloce/lib",
+    ] {
+        collect_lib_dir(Path::new(dir), 0, &mut seen);
+    }
+    for path in seen {
+        let name = path.file_name().unwrap_or_default().to_string_lossy();
+        let product = lib_product(&name).unwrap_or("crypto library");
+        let fp = file_sha256(&path).unwrap_or_default();
+        push(
+            findings,
+            path.display().to_string(),
+            format!("library: {} ({})", product, name),
+            "crypto library provider",
+            "context",
+            "medium",
+            if fp.is_empty() {
+                "unreadable".to_string()
+            } else {
+                format!("sha256:{}", fp)
+            },
+            format!("shared crypto library installed at {}", path.display()),
+        );
+    }
+    push(
+        findings,
+        "dyld shared cache".to_string(),
+        "system dylibs reside in the dyld shared cache and are not \
+         individually fingerprintable on disk"
+            .to_string(),
+        "coverage limitation",
+        "context",
+        "info",
+        "/usr/lib (no on-disk dylib files on modern macOS)".to_string(),
+        "blind spot reported explicitly (spec 4.5)".to_string(),
+    );
+}
+
+#[cfg(target_os = "macos")]
+fn collect_macos_configs(findings: &mut Vec<Finding>) {
+    // LibreSSL/OpenSSL command-line tool version.
+    if let Ok(out) = Command::new("openssl").arg("version").output() {
+        let v = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if !v.is_empty() {
+            push(
+                findings,
+                "openssl (PATH)".to_string(),
+                format!("tool: {}", v),
+                "crypto library provider",
+                "context",
+                "info",
+                "openssl version".to_string(),
+                "OpenSSL or LibreSSL command-line tool present".to_string(),
+            );
+        }
+    }
+    // System PEM trust bundle shipped with macOS.
+    if let Ok(text) = fs::read_to_string("/etc/ssl/cert.pem") {
+        let count = text.matches("-----BEGIN CERTIFICATE-----").count();
+        if count > 0 {
+            push(
+                findings,
+                "/etc/ssl/cert.pem".to_string(),
+                format!("OS certificate bundle: {} certificates", count),
+                "authentication (trust anchors)",
+                "context",
+                "info",
+                "/etc/ssl/cert.pem".to_string(),
+                "system PEM trust bundle; individual certificates are \
+                 predominantly RSA/ECDSA (quantum-vulnerable signatures); \
+                 scan with `qsearch scan` for per-certificate fingerprints"
+                    .to_string(),
+            );
+        }
+    }
+    if fs::metadata("/etc/ssl/openssl.cnf").is_ok() {
+        push(
+            findings,
+            "/etc/ssl/openssl.cnf".to_string(),
+            "crypto policy file (present)".to_string(),
+            "endpoint configuration",
+            "context",
+            "info",
+            "/etc/ssl/openssl.cnf".to_string(),
+            "system-wide TLS/crypto configuration".to_string(),
+        );
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -681,6 +776,20 @@ fn collect_macos_keychain(findings: &mut Vec<Finding>) {
 pub fn collect(findings: &mut Vec<Finding>) {
     collect_macos_libraries(findings);
     collect_macos_keychain(findings);
+    collect_macos_configs(findings);
+    collect_ssh(findings);
+    push(
+        findings,
+        "macOS process inventory".to_string(),
+        "per-process loaded-library inventory is not available without \
+         elevated tooling (no /proc on macOS)"
+            .to_string(),
+        "coverage limitation",
+        "context",
+        "info",
+        "process memory maps".to_string(),
+        "blind spot reported explicitly (spec 4.5)".to_string(),
+    );
     push(
         findings,
         "macOS operating environment".to_string(),

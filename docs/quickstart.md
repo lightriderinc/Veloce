@@ -86,9 +86,12 @@ FIPS module (classical algorithms + DRBG, cert #4718):
 #include <wolfssl/wolfcrypt/fips_test.h>
 
 int main(void) {
-    /* Required wiring (spec 5.1): install the wolfEntropy-backed seed
-     * source before instantiating the DRBG; the module is built with
-     * WC_RNG_SEED_CB and --enable-wolfEntropy=nofallback. */
+    /* Required wiring (spec 5.1): install the Lightrider seed callback
+     * before instantiating the DRBG. The module is built with
+     * WC_RNG_SEED_CB and makes no entropy claim of its own; the callback
+     * reads OS kernel entropy and verifies every block (RCT/APT) before
+     * returning it. The agent installs lightriderSeedCb; wc_GenerateSeed
+     * is shown here only to keep the sample self-contained. */
     wc_SetSeed_Cb(wc_GenerateSeed);
     if (wolfCrypt_GetStatus_fips() != 0) return 1;  /* approved state */
     WC_RNG rng;

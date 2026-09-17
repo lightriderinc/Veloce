@@ -1,0 +1,115 @@
+\documentclass[10pt]{article}
+\usepackage[letterpaper,margin=0.9in]{geometry}
+\usepackage{lmodern}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage{enumitem}
+\setlist{nosep,leftmargin=1.4em}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\definecolor{lrblue}{RGB}{22,80,145}
+\usepackage{titlesec}
+\titleformat{\section}{\large\bfseries\sffamily\color{lrblue}}{\thesection}{0.8em}{}
+\titlespacing{\section}{0pt}{0.9em}{0.3em}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\sffamily Lightrider Inc: Requests to wolfSSL}
+\fancyhead[R]{\small\sffamily September 7, 2026 (rev.\ 2)}
+\fancyfoot[C]{\small\thepage}
+\newcommand{\code}[1]{\texttt{\small #1}}
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+
+\begin{document}
+
+{\LARGE\sffamily\bfseries Requests to wolfSSL}\\[0.2em]
+{\sffamily Lightrider Inc, Veloce PQC SDK. Certificate \#4718, module
+v5.2.1, bundle \code{wolfssl-5.9.2-commercial-fips-linuxv5.2.1},
+Agreement v.01-24.}
+
+\section{Our configuration, for your verification}
+
+\begin{small}
+\begin{tabularx}{\textwidth}{@{}lL@{}}
+\toprule
+Linux build & \code{./configure --enable-fips=v5}; make, fips-hash.sh,
+  make, testwolfcrypt. No \code{--enable-wolfEntropy}, per your 2026-08-27
+  guidance that wolfEntropy was never tested with v5.2.1. \\
+Windows build & UG 2.2.45 (OE49): \code{wolfssl-fips.sln},
+  \code{DLL Release | x64}, Visual Studio 2026, no PAA, your supplied
+  \code{user\_settings.h} (\code{HAVE\_FIPS\_VERSION 5 / MINOR 2 / PATCH 1}). \\
+Seeding & Custom generate-seed callback registered with
+  \code{wc\_SetSeed\_Cb} (FIPS FAQ \S2): reads OS kernel entropy
+  (\code{getrandom} on Linux, \code{BCryptGenRandom} on Windows), applies
+  SP~800-90B-style RCT (cutoff 31) and APT (325/512) to every seed block,
+  fails closed on any error. Documented under legacy IG~9.3.A; no ESV
+  certificate claimed; caveat ``no assurance of the minimum strength of
+  generated SSPs'' acknowledged. \\
+Distribution & wolfCrypt as object code only inside Veloce installers;
+  notices retained; source confined to a restricted private repository. \\
+\bottomrule
+\end{tabularx}
+\end{small}
+
+\section{Please verify or confirm}
+
+\begin{enumerate}
+  \item The Linux and Windows build configurations above are approved
+        configurations for module v5.2.1 under the User Guide / COGM.
+  \item The seeding design above raises no concern for v5.2.1 under legacy
+        IG~9.3.A.
+  \item Authenticode signing of the FIPS DLL or of the MSI installer does
+        not interfere with the in-core HMAC-SHA-256 integrity check.
+\end{enumerate}
+
+\section{Please notify us}
+
+\begin{enumerate}
+  \item When \textbf{OE49} (Windows 11 Pro, Lenovo ThinkPad T14, Intel
+        i7-1260P) and \textbf{OE36} (Ubuntu 24.04 on Docker 28.5 / Hyper-V,
+        Xeon Platinum 8272CL, Azure Standard\_D2s\_v4; CAVP validation
+        36918) appear on the published \#4718 certificate and security
+        policy, with any expected CMVP timeframe. Until publication we ship
+        Windows with validation status ``pending publication''.
+\end{enumerate}
+
+\section{Please advise on entropy source validation}
+
+Our V1 seed source is OS kernel entropy and is not ESV-capable:
+\code{getrandom} and \code{BCryptGenRandom} return conditioned output, not
+raw noise. Under IG~9.3.A Additional Comment~11 an ESV certificate counts
+only when its number appears on the module certificate and in the security
+policy, so any ESV credit for Veloce depends on the module side.
+
+\begin{enumerate}
+  \item The ESV certificate and operating-environment list that will back
+        the v5.2.4 module and the FIPS v7 ``PQ-FS'' module, and whether
+        Windows~11 x86-64 and Ubuntu~24.04 x86-64 will be covered.
+        ESV~\#E335 currently lists one OE (AEDS Software Distribution 2.0,
+        Xeon E3-1275 v6) with reuse restricted to vendor.
+  \item Whether wolfSSL will cite a third-party ESV certificate (a
+        Lightrider-owned entropy source or an IDQ Quantis QRNG) in a
+        wolfCrypt module security policy under a commercial engagement, or
+        alternatively offer an OEM module validation for Lightrider.
+  \item Whether the in-process resubmission of \#4718 for OE49 and OE36
+        changes the module's legacy IG~9.3.A status or its entropy caveat.
+\end{enumerate}
+
+\section{Please paper on the Order Form}
+
+\begin{enumerate}
+  \item Veloce as the named Program under \S3: a PQC SDK exposing
+        cryptographic services through a local agent, not a linkable
+        cryptography library.
+  \item Commercial coverage for our PQC provider: standalone compilation of
+        \code{wc\_mlkem.*}, \code{wc\_mldsa.*}, and \code{sha3.c} from the
+        public \code{v5.9.2-stable} tree (the commercial bundle strips
+        SHAKE), shipped as object code only.
+  \item Budget and timing for the FIPS v7 ``PQ-FS'' upgrade (\S10 treats it
+        as an upgrade requiring a new Order Form).
+\end{enumerate}
+
+\end{document}

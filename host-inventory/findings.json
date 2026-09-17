@@ -4,8 +4,8 @@
   "tool_version": "1.0.0",
   "vendor": "Lightrider Inc",
   "scan_root": "/",
-  "generated_unix": 1786554453,
-  "files_scanned": 32,
+  "generated_unix": 1786637586,
+  "files_scanned": 31,
   "findings": [
     {
       "asset": "/usr/lib/x86_64-linux-gnu/cryptsetup/libcryptsetup-token-ssh.so",
@@ -17,7 +17,7 @@
       "detail": "shared crypto library installed at /usr/lib/x86_64-linux-gnu/cryptsetup/libcryptsetup-token-ssh.so",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/usr/lib/x86_64-linux-gnu/libargon2.so.1",
@@ -29,7 +29,7 @@
       "detail": "shared crypto library installed at /usr/lib/x86_64-linux-gnu/libargon2.so.1",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/usr/lib/x86_64-linux-gnu/libcrypto.so.3",
@@ -41,7 +41,7 @@
       "detail": "shared crypto library installed at /usr/lib/x86_64-linux-gnu/libcrypto.so.3",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/usr/lib/x86_64-linux-gnu/libcryptsetup.so.12.7.0",
@@ -53,7 +53,7 @@
       "detail": "shared crypto library installed at /usr/lib/x86_64-linux-gnu/libcryptsetup.so.12.7.0",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/usr/lib/x86_64-linux-gnu/libgcrypt.so.20.3.4",
@@ -65,7 +65,7 @@
       "detail": "shared crypto library installed at /usr/lib/x86_64-linux-gnu/libgcrypt.so.20.3.4",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/usr/lib/x86_64-linux-gnu/libgnutls.so.30.31.0",
@@ -77,7 +77,7 @@
       "detail": "shared crypto library installed at /usr/lib/x86_64-linux-gnu/libgnutls.so.30.31.0",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/usr/lib/x86_64-linux-gnu/libhogweed.so.6.4",
@@ -89,7 +89,7 @@
       "detail": "shared crypto library installed at /usr/lib/x86_64-linux-gnu/libhogweed.so.6.4",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/usr/lib/x86_64-linux-gnu/libkrb5.so.3.3",
@@ -101,7 +101,7 @@
       "detail": "shared crypto library installed at /usr/lib/x86_64-linux-gnu/libkrb5.so.3.3",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/usr/lib/x86_64-linux-gnu/libnettle.so.8.4",
@@ -113,7 +113,7 @@
       "detail": "shared crypto library installed at /usr/lib/x86_64-linux-gnu/libnettle.so.8.4",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/usr/lib/x86_64-linux-gnu/libnss3.so",
@@ -125,7 +125,7 @@
       "detail": "shared crypto library installed at /usr/lib/x86_64-linux-gnu/libnss3.so",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/usr/lib/x86_64-linux-gnu/libsodium.so.23.3.0",
@@ -137,7 +137,7 @@
       "detail": "shared crypto library installed at /usr/lib/x86_64-linux-gnu/libsodium.so.23.3.0",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/usr/lib/x86_64-linux-gnu/libssh.so.4.8.7",
@@ -149,7 +149,7 @@
       "detail": "shared crypto library installed at /usr/lib/x86_64-linux-gnu/libssh.so.4.8.7",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/usr/lib/x86_64-linux-gnu/libssl.so.3",
@@ -161,7 +161,7 @@
       "detail": "shared crypto library installed at /usr/lib/x86_64-linux-gnu/libssl.so.3",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/usr/local/lib/python3.10/dist-packages/psycopg2_binary.libs/libcrypto-e63abc84.so.1.1",
@@ -173,7 +173,7 @@
       "detail": "shared crypto library installed at /usr/local/lib/python3.10/dist-packages/psycopg2_binary.libs/libcrypto-e63abc84.so.1.1",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/usr/local/lib/python3.10/dist-packages/psycopg2_binary.libs/libkrb5-fcafa220.so.3.3",
@@ -185,7 +185,7 @@
       "detail": "shared crypto library installed at /usr/local/lib/python3.10/dist-packages/psycopg2_binary.libs/libkrb5-fcafa220.so.3.3",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/usr/local/lib/python3.10/dist-packages/psycopg2_binary.libs/libssl-3e69114b.so.1.1",
@@ -197,7 +197,7 @@
       "detail": "shared crypto library installed at /usr/local/lib/python3.10/dist-packages/psycopg2_binary.libs/libssl-3e69114b.so.1.1",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/usr/local/lib/python3.10/dist-packages/pyzmq.libs/libsodium-19479d6d.so.26.2.0",
@@ -209,7 +209,7 @@
       "detail": "shared crypto library installed at /usr/local/lib/python3.10/dist-packages/pyzmq.libs/libsodium-19479d6d.so.26.2.0",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/proc/crypto",
@@ -221,7 +221,7 @@
       "detail": "algorithm registered with the Linux kernel crypto API",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/proc/crypto",
@@ -233,7 +233,7 @@
       "detail": "algorithm registered with the Linux kernel crypto API",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/proc/crypto",
@@ -245,7 +245,7 @@
       "detail": "algorithm registered with the Linux kernel crypto API",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/proc/crypto",
@@ -257,7 +257,7 @@
       "detail": "algorithm registered with the Linux kernel crypto API",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/proc/crypto",
@@ -269,7 +269,7 @@
       "detail": "full list retained in the kernel; quantum-vulnerable entries reported individually",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/etc/ssh/ssh_host_rsa_key.pub",
@@ -281,7 +281,7 @@
       "detail": "SSH daemon host key",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/etc/ssh/ssh_host_dsa_key.pub",
@@ -293,7 +293,7 @@
       "detail": "SSH daemon host key",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/etc/ssh/ssh_host_ed25519_key.pub",
@@ -305,7 +305,7 @@
       "detail": "SSH daemon host key",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/etc/ssh/ssh_host_ecdsa_key.pub",
@@ -317,7 +317,7 @@
       "detail": "SSH daemon host key",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/etc/ssl/certs",
@@ -329,7 +329,7 @@
       "detail": "system trust store; individual certificates are predominantly RSA/ECDSA (quantum-vulnerable signatures); scan with `qsearch scan` for per-certificate fingerprints",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/etc/ssl/openssl.cnf",
@@ -341,7 +341,7 @@
       "detail": "system-wide TLS/crypto configuration",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "openssl (PATH)",
@@ -353,7 +353,7 @@
       "detail": "OpenSSL command-line tool present",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "process systemd (pid 1964354)",
@@ -365,23 +365,11 @@
       "detail": "crypto libraries mapped into a running process",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
-    },
-    {
-      "asset": "process veloce-agent (pid 3206660)",
-      "algorithm": "process crypto usage: wolfSSL",
-      "cryptographic_service": "active cryptography (loaded library)",
-      "classification": "context",
-      "risk": "medium",
-      "source_of_evidence": "/proc/3206660/maps",
-      "detail": "crypto libraries mapped into a running process",
-      "provenance": "directly observed",
-      "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     },
     {
       "asset": "/proc",
-      "algorithm": "process scan: 202 processes unreadable; non-root scans cannot guarantee full process coverage",
+      "algorithm": "process scan: 201 processes unreadable; non-root scans cannot guarantee full process coverage",
       "cryptographic_service": "coverage limitation",
       "classification": "context",
       "risk": "info",
@@ -389,7 +377,7 @@
       "detail": "blind spot reported explicitly (spec 4.5)",
       "provenance": "directly observed",
       "confidence": "high",
-      "last_observed_unix": 1786554453
+      "last_observed_unix": 1786637586
     }
   ],
   "agent_runtime_records_merged": false

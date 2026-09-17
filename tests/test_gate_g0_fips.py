@@ -16,7 +16,9 @@ def test_fips_build_record_matches_library():
     assert record["fips_certificate"] == "#4718"
     assert record["fips_module_version"] == "5.2.1"
     assert "--enable-fips=v5" in record["build_flags"]
-    assert "wolfEntropy" in record["build_flags"]
+    # wolfEntropy is not built: never tested with v5.2.1 (wolfSSL 2026-08-27).
+    assert "wolfEntropy" not in record["build_flags"]
+    assert record["entropy_source"].startswith("lightrider-local")
 
 
 def test_testwolfcrypt_green():

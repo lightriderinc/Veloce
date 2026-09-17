@@ -1,0 +1,121 @@
+#!/bin/bash
+# Configure and start Veloce on macOS from an extracted binary client bundle.
+# Mirrors installer/linux/veloce-fire-up with dylib artifact names and an
+# optional --launchd mode that installs a per-user LaunchAgent instead of a
+# foreground-spawned process.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+STATE_DIR="${VELOCE_STATE_DIR:-$HOME/.veloce}"
+CONFIG="$STATE_DIR/agent.json"
+SOCKET="$STATE_DIR/agent.sock"
+PID_FILE="$STATE_DIR/agent.pid"
+LOG_FILE="$STATE_DIR/agent.log"
+LAUNCHD=0
+[ "${1:-}" = "--launchd" ] && LAUNCHD=1
+
+die() {
+    echo "veloce-fire-up: $*" >&2
+    exit 1
+}
+
+[ "$(uname -s)" = "Darwin" ] || die "this launcher is for macOS"
+command -v python3 >/dev/null 2>&1 || die "Python 3 is required"
+[ -x "$ROOT/bin/veloce-agent" ] || die "missing bin/veloce-agent"
+[ -x "$ROOT/bin/veloce" ] || die "missing bin/veloce"
+
+fips_libs=("$ROOT"/lib/libwolfssl.*.dylib)
+[ -f "${fips_libs[0]}" ] || die "missing lib/libwolfssl.*.dylib"
+[ "${#fips_libs[@]}" -eq 1 ] || die "expected exactly one versioned wolfSSL library"
+fips_lib="${fips_libs[0]}"
+fips_record="$ROOT/lib/wolfcrypt-fips.build-record.json"
+pqc_lib="$ROOT/lib/libveloce-pqc.dylib"
+pqc_record="$ROOT/lib/veloce-pqc.build-record.json"
+
+for required in "$fips_record" "$pqc_lib" "$pqc_record"; do
+    [ -f "$required" ] || die "missing ${required#"$ROOT/"}"
+done
+
+umask 077
+install -d -m 700 "$STATE_DIR"
+python3 - "$CONFIG" "$SOCKET" "$fips_lib" "$fips_record" \
+    "$pqc_lib" "$pqc_record" <<'PY'
+import json
+import sys
+
+out, socket, fips_lib, fips_record, pqc_lib, pqc_record = sys.argv[1:]
+config = {
+    "socket": socket,
+    "fips_lib": fips_lib,
+    "fips_record": fips_record,
+    "pqc_lib": pqc_lib,
+    "pqc_record": pqc_record,
+    "ems": {"mode": "disabled", "endpoint": "", "entropy_mixin": "off"},
+}
+with open(out, "w", encoding="utf-8") as handle:
+    json.dump(config, handle, indent=2)
+PY
+
+export VELOCE_SOCKET="$SOCKET"
+
+if [ "$LAUNCHD" = 1 ]; then
+    plist_template="$ROOT/installer/macos/com.lightrider.veloce-agent.plist"
+    [ -f "$plist_template" ] || plist_template="$(dirname "$0")/com.lightrider.veloce-agent.plist"
+    [ -f "$plist_template" ] || die "missing LaunchAgent template plist"
+    plist_out="$HOME/Library/LaunchAgents/com.lightrider.veloce-agent.plist"
+    install -d -m 755 "$HOME/Library/LaunchAgents"
+    sed -e "s|__VELOCE_AGENT__|$ROOT/bin/veloce-agent|" \
+        -e "s|__VELOCE_CONFIG__|$CONFIG|" \
+        -e "s|__VELOCE_LOG__|$LOG_FILE|" \
+        "$plist_template" >"$plist_out"
+    plutil -lint "$plist_out" >/dev/null
+    launchctl bootout "gui/$(id -u)/com.lightrider.veloce-agent" 2>/dev/null || true
+    rm -f "$SOCKET"
+    launchctl bootstrap "gui/$(id -u)" "$plist_out"
+    for _ in $(seq 1 40); do
+        [ -S "$SOCKET" ] && break
+        sleep 0.25
+    done
+    [ -S "$SOCKET" ] || { tail -n 100 "$LOG_FILE" >&2 || true; \
+        die "agent did not create $SOCKET"; }
+    "$ROOT/bin/veloce" --json status
+    "$ROOT/bin/veloce" --json self-test
+    echo "veloce-fire-up: LaunchAgent installed at $plist_out"
+    echo "veloce-fire-up: log: $LOG_FILE"
+    exit 0
+fi
+
+if [ -s "$PID_FILE" ]; then
+    recorded_pid="$(cat "$PID_FILE")"
+    if kill -0 "$recorded_pid" 2>/dev/null; then
+        echo "veloce-fire-up: already running as PID $recorded_pid"
+        "$ROOT/bin/veloce" --json status
+        "$ROOT/bin/veloce" --json self-test
+        exit 0
+    fi
+fi
+
+rm -f "$PID_FILE" "$SOCKET"
+nohup "$ROOT/bin/veloce-agent" --config "$CONFIG" --quiet \
+    >"$LOG_FILE" 2>&1 &
+agent_pid=$!
+printf '%s\n' "$agent_pid" >"$PID_FILE"
+
+for _ in $(seq 1 20); do
+    if ! kill -0 "$agent_pid" 2>/dev/null; then
+        tail -n 100 "$LOG_FILE" >&2 || true
+        die "agent exited during startup"
+    fi
+    [ -S "$SOCKET" ] && break
+    sleep 0.25
+done
+
+if [ ! -S "$SOCKET" ]; then
+    tail -n 100 "$LOG_FILE" >&2 || true
+    die "agent did not create $SOCKET"
+fi
+
+"$ROOT/bin/veloce" --json status
+"$ROOT/bin/veloce" --json self-test
+echo "veloce-fire-up: running as PID $agent_pid"
+echo "veloce-fire-up: log: $LOG_FILE"

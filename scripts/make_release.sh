@@ -9,7 +9,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-VER="${VELOCE_VERSION:-1.0.0}"
+VER="${VELOCE_VERSION:-1.1.0}"
 INCLUDE_PYTHON_SDK="${VELOCE_INCLUDE_PYTHON_SDK:-1}"
 NAME="veloce-${VER}-linux-x86_64"
 STAGE="$ROOT/build/dist/$NAME"

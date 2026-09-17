@@ -1,6 +1,6 @@
 [CmdletBinding(DefaultParameterSetName = "Runtime")]
 param(
-    [string]$Version = "1.0.0",
+    [string]$Version = "1.1.0",
     [ValidateSet("x86_64")][string]$Arch = "x86_64",
     [Parameter(ParameterSetName = "Runtime", Mandatory = $true)]
     [string]$RuntimeDir,

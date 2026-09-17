@@ -478,23 +478,7 @@
     },
     {
       "type": "cryptographic-asset",
-      "name": "process crypto usage: wolfSSL",
-      "cryptoProperties": {
-        "assetType": "algorithm",
-        "veloce:classification": "context",
-        "veloce:risk": "medium"
-      },
-      "evidence": {
-        "occurrences": [
-          {
-            "location": "/proc/3206660/maps"
-          }
-        ]
-      }
-    },
-    {
-      "type": "cryptographic-asset",
-      "name": "process scan: 202 processes unreadable; non-root scans cannot guarantee full process coverage",
+      "name": "process scan: 201 processes unreadable; non-root scans cannot guarantee full process coverage",
       "cryptoProperties": {
         "assetType": "algorithm",
         "veloce:classification": "context",

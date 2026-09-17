@@ -141,3 +141,14 @@ td:last-child { max-width: 500px; overflow-wrap: anywhere; color: var(--muted); 
   .metric-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .content-grid, .scan-hero { grid-template-columns: 1fr; }
 }
+
+/* Entropy page: cloud EMS mix-in toggle */
+.mixin-row { display: flex; align-items: center; gap: 14px; margin: 14px 0 18px; }
+.switch { position: relative; display: inline-block; width: 46px; height: 24px; flex: none; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; inset: 0; background: var(--panel-2); border: 1px solid var(--line); border-radius: 24px; transition: background .15s ease; }
+.slider::before { content: ""; position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--muted); transition: transform .15s ease, background .15s ease; }
+.switch input:checked + .slider { background: var(--cyan-deep); border-color: var(--cyan); }
+.switch input:checked + .slider::before { transform: translateX(22px); background: var(--cyan); }
+.switch input:disabled + .slider { opacity: .45; cursor: not-allowed; }
+#mixin-label { color: var(--muted); font-size: 13px; }

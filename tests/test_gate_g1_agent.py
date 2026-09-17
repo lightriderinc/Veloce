@@ -25,8 +25,24 @@ def test_validation_status_per_item(veloce_sdk):
     assert items["fips_module"]["certificate"] == "#4718"
     assert items["fips_module"]["sha256_verified_before_load"] is True
     assert items["pqc_provider"]["pqc_inside_fips_boundary"] is False
+    assert items["entropy_source"]["name"] == "lightrider-local"
+    assert items["entropy_source"]["esv_certified"] is False
+    assert items["entropy_source"]["verified_local"] is True
     assert items["cloud_entropy_mixin"]["state"] == "off"
     assert items["cloud_entropy_mixin"]["credited"] is False
+
+
+def test_entropy_provider_specs(veloce_sdk):
+    providers = veloce_sdk.list_entropy_providers()["providers"]
+    local = next(p for p in providers if p["name"] == "lightrider-local")
+    assert local["esv_certified"] is False
+    assert local["verified_local"] is True
+    assert local["credited"] is True
+    assert local["drbg"].startswith("SP 800-90A Hash_DRBG")
+    # The DRBG was seeded at startup through the verified callback.
+    assert local["seed_blocks_verified"] >= 1
+    assert local["seed_health_failures"] == 0
+    assert local["last_seed_unix"] > 0
 
 
 def test_self_tests(veloce_sdk):
