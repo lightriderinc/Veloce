@@ -27,7 +27,7 @@
     <Icon Id="VeloceIcon" SourceFile="$(BrandingDir)\veloce.ico" />
     <Property Id="ARPPRODUCTICON" Value="VeloceIcon" />
     <Property Id="ARPCOMMENTS" Value="Veloce PQC SDK: qSearch cryptographic discovery and FIPS 140-3 validation dashboard" />
-    <Property Id="ARPNOMODIFY" Value="1" />
+    <!-- ARPNOMODIFY is defined by WixUI_InstallDir; declaring it here duplicates it (WIX0091). -->
 
     <!-- Installer dialogs carry the Lightrider artwork (spec 7.3) -->
     <WixVariable Id="WixUILicenseRtf" Value="$(LicenseRtf)" />
