@@ -351,9 +351,18 @@ class DesktopService:
             command = [
                 "powershell.exe", "-NoProfile", "-STA", "-Command",
                 "Add-Type -AssemblyName System.Windows.Forms; "
+                "$owner=New-Object System.Windows.Forms.Form; "
+                "$owner.StartPosition='CenterScreen'; "
+                "$owner.Size=New-Object System.Drawing.Size(1,1); "
+                "$owner.ShowInTaskbar=$false; "
+                "$owner.FormBorderStyle='FixedToolWindow'; "
+                "$owner.Opacity=0; $owner.TopMost=$true; "
+                "$owner.Show(); $owner.Activate(); "
+                "[System.Windows.Forms.Application]::DoEvents(); "
                 "$d=New-Object System.Windows.Forms.FolderBrowserDialog; "
                 "$d.Description='Choose a folder for qSearch'; "
-                "if($d.ShowDialog() -eq 'OK'){$d.SelectedPath}",
+                "try { if($d.ShowDialog($owner) -eq 'OK'){$d.SelectedPath} } "
+                "finally { $d.Dispose(); $owner.Close(); $owner.Dispose() }",
             ]
         elif system == "Darwin":
             command = [

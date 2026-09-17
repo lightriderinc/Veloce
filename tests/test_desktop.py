@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import struct
+import subprocess
 import sys
 
 import pytest
@@ -12,6 +13,25 @@ ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT))
 
 from desktop import veloce_desktop
+
+
+def test_windows_folder_picker_uses_foreground_owner(monkeypatch, tmp_path):
+    captured = {}
+
+    def fake_run(command, **kwargs):
+        captured["command"] = command
+        return subprocess.CompletedProcess(command, 0, f"{tmp_path}\n", "")
+
+    monkeypatch.setattr(veloce_desktop.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(veloce_desktop.subprocess, "run", fake_run)
+
+    selected = veloce_desktop.DesktopService("token").select_directory()
+
+    script = captured["command"][-1]
+    assert selected == str(tmp_path.resolve())
+    assert "$owner.TopMost=$true" in script
+    assert "$owner.Activate()" in script
+    assert "$d.ShowDialog($owner)" in script
 
 
 def _load_release_builder():

@@ -11,6 +11,27 @@ param(
 
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$Python = Get-Command py -ErrorAction SilentlyContinue
+$PythonLauncherArgs = @("-3")
+if (-not $Python) {
+    $Python = Get-Command python -ErrorAction SilentlyContinue
+    $PythonLauncherArgs = @()
+}
+if (-not $Python) {
+    throw "Python 3 is required; install it from https://www.python.org/downloads/windows/ and reopen PowerShell"
+}
+try {
+    & $Python.Source @PythonLauncherArgs --version | Out-Null
+} catch {
+    throw "Unable to run Python 3. Install it from https://www.python.org/downloads/windows/, disable the Microsoft Store Python app-execution aliases if necessary, and reopen PowerShell"
+}
+if ($LASTEXITCODE -ne 0) {
+    throw "Unable to run Python 3; reinstall Python and reopen PowerShell"
+}
+$Cargo = Get-Command cargo -ErrorAction SilentlyContinue
+if (-not $Cargo) {
+    throw "Rust with the MSVC toolchain is required; install it from https://rustup.rs/ and reopen PowerShell"
+}
 $PythonArgs = @(
     (Join-Path $Root "scripts\build_desktop_release.py"),
     "--platform", "windows", "--arch", $Arch, "--version", $Version
@@ -21,7 +42,11 @@ if ($DiscoveryOnly) {
     $PythonArgs += @("--runtime-dir", (Resolve-Path $RuntimeDir).Path)
 }
 
-& python @PythonArgs
+try {
+    & $Python.Source @PythonLauncherArgs @PythonArgs
+} catch {
+    throw "Unable to run Python 3. Install it from https://www.python.org/downloads/windows/, disable the Microsoft Store Python app-execution aliases if necessary, and reopen PowerShell"
+}
 if ($LASTEXITCODE -ne 0) { throw "Desktop payload build failed" }
 
 $BuildRoot = Join-Path $Root "build\desktop\windows-$Arch"

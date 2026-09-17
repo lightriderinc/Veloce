@@ -99,9 +99,35 @@ discovery-only build instructions and the platform certification boundaries.
 
 ## Releasing
 
+Release packages must be built natively on their target operating system.
+`scripts/make_release.sh` creates the **Linux x86-64** archive; it is not the
+Windows release builder and running it from Windows may invoke WSL.
+
+### Linux x86-64
+
 ```
 bash scripts/make_release.sh    # object-code archive + wheel + checksums
 ```
+
+### Windows x86-64
+
+Use PowerShell, not Bash or WSL. Install Python 3, the stable Rust MSVC
+toolchain, and the desktop build dependency, then build the discovery-only
+portable ZIP:
+
+```powershell
+py -3 -m pip install -r desktop\requirements-build.txt
+.\installer\windows\build-release.ps1 `
+    -Version 1.0.0 `
+    -DiscoveryOnly `
+    -SkipMsi
+```
+
+The ZIP is written to `build\dist\veloce-1.0.0-windows-x86_64.zip`.
+For MSI output, install WiX Toolset v4 and omit `-SkipMsi`. A full-runtime
+Windows package also requires the approved native Windows runtime inputs; see
+[`docs/desktop-releases.md`](docs/desktop-releases.md) for the required layout
+and certification boundary.
 
 Publication steps (DOI-versioned, all platforms): docs/zenodo-release-guide.md.
 Zenodo reads [`.zenodo.json`](.zenodo.json) when a GitHub Release is archived.
