@@ -56,7 +56,10 @@ config = {
     "fips_record": fips_record,
     "pqc_lib": pqc_lib,
     "pqc_record": pqc_record,
-    "ems": {"mode": "disabled", "endpoint": "", "entropy_mixin": "off"},
+    "ems": {"mode": "disabled", "endpoint": "https://ems.lightriderinc.com",
+            "policy": "fastest_available",
+            "pubkey_hex": "cdec782a5dccf410739222245344883ca70d9a5788948f83a15cf94da3e355bf",
+            "interval_s": 60, "bytes": 64, "entropy_mixin": "off"},
     "entropy": {"source": entropy_source},
 }
 with open(out, "w", encoding="utf-8") as handle:

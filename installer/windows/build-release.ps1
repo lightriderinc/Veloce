@@ -19,14 +19,14 @@
     module's in-core integrity check.
 
 .EXAMPLE
-    .\installer\windows\build-release.ps1 -Version 1.2.0 -RuntimeDir C:\secure\veloce-runtime-windows-x86_64
+    .\installer\windows\build-release.ps1 -Version 1.3.0 -RuntimeDir C:\secure\veloce-runtime-windows-x86_64
 
 .EXAMPLE
-    .\installer\windows\build-release.ps1 -Version 1.2.0 -DiscoveryOnly -SkipMsi
+    .\installer\windows\build-release.ps1 -Version 1.3.0 -DiscoveryOnly -SkipMsi
 #>
 [CmdletBinding(DefaultParameterSetName = "Runtime")]
 param(
-    [string]$Version = "1.2.0",
+    [string]$Version = "1.3.0",
     [ValidateSet("x86_64")][string]$Arch = "x86_64",
     [Parameter(ParameterSetName = "Runtime", Mandatory = $true)]
     [string]$RuntimeDir,

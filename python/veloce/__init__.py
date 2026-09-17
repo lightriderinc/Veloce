@@ -26,7 +26,7 @@ from ._client import (
     default_socket_path,
 )
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = [
     "initialize", "health", "version",
     "list_policy_profiles", "list_crypto_providers",
@@ -35,7 +35,8 @@ __all__ = [
     "mldsa_generate_keypair", "mldsa_sign", "mldsa_verify",
     "configure_hybrid_tls", "run_fips_self_tests", "approved_mode_status",
     "export_cbom", "generate_diagnostic_bundle",
-    "set_entropy_mixin", "release_key",
+    "set_entropy_mixin",
+    "set_ems_mode", "release_key",
     "banner", "KeyPair",
     "VeloceError", "DegradedError", "ConnectionError_",
 ]
@@ -195,6 +196,13 @@ def set_entropy_mixin(enabled: bool) -> Dict[str, Any]:
     """User-controllable cloud-entropy mix-in; requires EMS enabled."""
     return _c().call("set_entropy_mixin", {"enabled": enabled})
 
+
+
+def set_ems_mode(enabled: bool) -> Dict[str, Any]:
+    """Enable or disable the cloud EMS connection at runtime. Disabling also
+    turns the mix-in off. Enabling requires ems.endpoint and ems.pubkey_hex
+    in the agent configuration."""
+    return _c().call("set_ems_mode", {"enabled": enabled})
 
 def release_key(private_key_handle: str) -> None:
     _c().call("release_key", {"private_key_handle": private_key_handle})

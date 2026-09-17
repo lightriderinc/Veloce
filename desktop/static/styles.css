@@ -371,6 +371,51 @@ td:last-child { max-width: 520px; color: var(--muted); overflow-wrap: anywhere; 
 .switch input:disabled + .slider { opacity: .45; cursor: not-allowed; }
 #mixin-label { color: var(--ink-2); font-size: 14px; font-weight: 500; }
 
+/* ---------------------------------------------------------- entropy flow */
+.flow { display: flex; align-items: stretch; gap: 10px; margin-top: 20px; }
+.flow-step {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas: "icon title state" "icon text text";
+  column-gap: 12px;
+  row-gap: 4px;
+  align-items: center;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.flow-step .flow-icon { grid-area: icon; }
+.flow-step strong { grid-area: title; font-size: 15px; font-weight: 600; }
+.flow-step .flow-state { grid-area: state; }
+.flow-step p { grid-area: text; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.flow-icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; background: var(--surface-2); font-size: 18px; }
+.flow-arrow { align-self: center; color: var(--muted); font-size: 20px; flex: none; }
+.flow-state { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.flow-state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.flow-state.good { color: var(--good); background: color-mix(in srgb, var(--good-dot) 14%, transparent); }
+.flow-state.good::before { background: var(--good-dot); }
+.flow-state.warn { color: var(--warn); background: color-mix(in srgb, var(--warn-dot) 16%, transparent); }
+.flow-state.warn::before { background: var(--warn-dot); }
+.flow-state.bad { color: var(--bad); background: color-mix(in srgb, var(--bad-dot) 12%, transparent); }
+.flow-state.bad::before { background: var(--bad-dot); }
+.flow-state.off::before { background: var(--line-strong); }
+.flow-cloud { display: flex; align-items: center; gap: 14px; margin-top: 12px; padding: 14px 18px; border: 1px dashed var(--line-strong); border-radius: var(--radius-md); color: var(--ink-2); font-size: 14px; }
+.flow-cloud .flow-icon { background: var(--lr-gradient); color: #fff; }
+.flow-cloud span:nth-child(2) { flex: 1; }
+.steps { margin: 16px 0 0; padding-left: 22px; color: var(--ink-2); font-size: 14px; line-height: 1.55; }
+.steps li { margin-bottom: 10px; }
+.steps strong { color: var(--ink); }
+.details { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.details summary { cursor: pointer; color: var(--accent); font-size: 14px; font-weight: 600; list-style: none; }
+.details summary::-webkit-details-marker { display: none; }
+.details summary::before { content: "▸ "; }
+.details[open] summary::before { content: "▾ "; }
+.details .record-list { margin-top: 8px; }
+
 /* --------------------------------------------------------------- toast */
 .toast {
   position: fixed;
@@ -397,6 +442,9 @@ td:last-child { max-width: 520px; color: var(--muted); overflow-wrap: anywhere; 
   .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .content-grid, .scan-hero { grid-template-columns: 1fr; }
   .hero-card { flex-direction: column; align-items: flex-start; }
+  .flow { flex-wrap: wrap; }
+  .flow-step { flex: 1 1 45%; }
+  .flow-arrow { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation-duration: .01ms !important; }

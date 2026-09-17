@@ -176,44 +176,124 @@ function formatSeedTime(unixSeconds) {
   return new Date(unixSeconds * 1000).toLocaleTimeString();
 }
 
+function formatAge(unixSeconds) {
+  if (!unixSeconds || unixSeconds <= 0) return "";
+  const seconds = Math.max(0, Math.round(Date.now() / 1000 - unixSeconds));
+  if (seconds < 60) return `${seconds} s ago`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)} min ago`;
+  return `${Math.round(seconds / 3600)} h ago`;
+}
+
+function setFlowState(id, label, state) {
+  const element = byId(id);
+  element.textContent = label;
+  element.classList.remove("good", "warn", "bad", "off");
+  if (state) element.classList.add(state);
+}
+
 function renderEntropy(snapshot) {
-  setText("entropy-message", snapshot.message);
-  const local = (snapshot.providers || []).find((p) => p.name === "lightrider-local") || {};
-  const healthy = snapshot.live && local.health === "ok";
+  setText("entropy-message", snapshot.live
+    ? "Live view of the randomness that protects your keys."
+    : snapshot.message);
+  const providers = snapshot.providers || [];
+  const local = providers.find((p) => p.name === "lightrider-local") || {};
+  const cloud = providers.find((p) => p.name === "cloud-entropy-mixin") || {};
+  const live = snapshot.live === true;
+  const healthy = live && local.health === "ok";
   const hardware = local.hardware_source === true;
-  setText("provider-value", snapshot.live ? (healthy ? (hardware ? "RDSEED" : "OS DRBG") : "FAILED") : "NO LIVE DATA");
-  setValueState("provider-value", snapshot.live ? (healthy ? (hardware ? "good" : "warn") : "bad") : "warn");
-  setText("provider-detail", snapshot.live
-    ? (hardware ? "Hardware entropy, health tests passing" : "Unvalidated OS DRBG chain, no strength claim")
-    : "Local seed provider");
-  setText("blocks-value", snapshot.live ? local.seed_blocks_verified : "—");
-  setText("failures-value", snapshot.live ? local.seed_health_failures : "—");
-  setValueState("failures-value", snapshot.live ? (local.seed_health_failures === 0 ? "good" : "bad") : "warn");
-  setText("last-seed-value", snapshot.live ? formatSeedTime(local.last_seed_unix) : "—");
+  const blocks = Number(local.seed_blocks_verified || 0);
+  const failures = Number(local.seed_health_failures || 0);
 
-  const specs = byId("entropy-specs");
-  specs.replaceChildren();
-  addRecordRow(specs, "Provider", local.name || "lightrider-local");
-  addRecordRow(specs, "Source", local.type);
-  addRecordRow(specs, "Source kind", local.source_kind);
-  addRecordRow(specs, "Construction", local.rbg_construction);
-  addRecordRow(specs, "DRBG", local.drbg);
-  addRecordRow(specs, "Health tests", local.health_tests);
-  addRecordRow(specs, "Bytes verified", snapshot.live ? String(local.seed_bytes_verified) : "");
-  addRecordRow(specs, "ESV certified", local.esv_certified === false ? "No (legacy IG 9.3.A applies)" : "");
-  addRecordRow(specs, "Strength claim", local.security_strength_claim);
+  // Flow diagram: plain words, one state per step.
+  if (!live) {
+    ["flow-source-state", "flow-health-state", "flow-drbg-state", "flow-keys-state"].forEach((id) => setFlowState(id, "No live data", "warn"));
+  } else if (!healthy) {
+    setFlowState("flow-source-state", hardware ? "Problem" : "OS fallback", "bad");
+    setFlowState("flow-health-state", failures > 0 ? "Failed" : "Stopped", "bad");
+    setFlowState("flow-drbg-state", "Stopped", "bad");
+    setFlowState("flow-keys-state", "Refused", "bad");
+  } else {
+    setFlowState("flow-source-state", hardware ? "Ready" : "OS fallback", hardware ? "good" : "warn");
+    setFlowState("flow-health-state", "Passing", "good");
+    setFlowState("flow-drbg-state", "Ready", "good");
+    setFlowState("flow-keys-state", "Available", "good");
+  }
+  setText("flow-source-text", hardware || !live
+    ? "Random bits from this computer's processor"
+    : "Operating system randomness (no strength claim)");
+  setText("flow-health-text", live ? `${blocks} blocks checked, ${failures} failures` : "Every block is tested before use");
+  setText("flow-drbg-text", live && local.last_seed_unix ? `Last refreshed ${formatSeedTime(local.last_seed_unix)}` : "Certified generator, refreshed from the source");
 
-  const mixinOn = snapshot.mixin && snapshot.mixin.state === "on";
+  // Metric cards.
+  setText("src-value", live ? (healthy ? (hardware ? "Ready" : "OS fallback") : "Problem") : "No live data");
+  setValueState("src-value", live ? (healthy ? (hardware ? "good" : "warn") : "bad") : "warn");
+  setText("src-detail", live ? (hardware ? "Processor hardware (RDSEED)" : "Operating system randomness, no strength claim") : "Awaiting live status");
+  setText("health-value", live ? (healthy ? "Passing" : "Failed") : "No live data");
+  setValueState("health-value", live ? (healthy ? "good" : "bad") : "warn");
+  setText("health-detail", live ? `${blocks} blocks checked · ${failures} failures` : "Blocks checked before use");
+  setText("drbg-value", live ? (healthy ? "Ready" : "Stopped") : "No live data");
+  setValueState("drbg-value", live ? (healthy ? "good" : "bad") : "warn");
+  setText("drbg-detail", live ? `Last refresh ${formatSeedTime(local.last_seed_unix)}` : "Last refresh time");
+
+  // Cloud entropy.
+  const emsEnabled = cloud.ems_mode === "enabled";
+  const mixinOn = cloud.state === "on";
+  const mixed = Number(cloud.packets_mixed || 0);
+  const rejected = Number(cloud.packets_rejected || 0);
+  let cloudLabel = "Off";
+  let cloudState = "off";
+  let cloudDetail = "Optional extra input";
+  if (live && mixinOn) {
+    if (mixed > 0 && !cloud.last_error) {
+      cloudLabel = "Connected"; cloudState = "good";
+      cloudDetail = `Last packet ${formatAge(cloud.last_mixin_unix)} · quality ${cloud.last_quality_score}`;
+    } else if (mixed > 0) {
+      cloudLabel = "Retrying"; cloudState = "warn";
+      cloudDetail = cloud.last_error;
+    } else if (cloud.last_error) {
+      cloudLabel = "Problem"; cloudState = "bad";
+      cloudDetail = cloud.last_error;
+    } else {
+      cloudLabel = "Connecting"; cloudState = "warn";
+      cloudDetail = "Waiting for the first packet";
+    }
+  }
+  setFlowState("flow-cloud-state", cloudLabel, cloudState);
+  setText("cloud-value", live ? cloudLabel : "No live data");
+  setValueState("cloud-value", live ? (cloudState === "off" ? "" : cloudState) : "warn");
+  setText("cloud-detail", live ? cloudDetail : "Optional extra input");
+
   setText("mixin-state", mixinOn ? "on" : "off");
   const toggle = byId("mixin-toggle");
   toggle.checked = mixinOn;
-  toggle.disabled = !snapshot.live;
-  setText("mixin-label", mixinOn ? "Cloud EMS enabled (additional input only)" : "Cloud EMS disabled");
+  toggle.disabled = !live;
+  setText("mixin-label", mixinOn ? "Cloud entropy on" : "Cloud entropy off");
   const mixinRecord = byId("mixin-record");
   mixinRecord.replaceChildren();
-  addRecordRow(mixinRecord, "EMS mode", snapshot.ems_mode);
-  addRecordRow(mixinRecord, "Last mix-in", (snapshot.mixin || {}).last_mixin);
-  addRecordRow(mixinRecord, "Credited entropy", "Zero; local provider remains the sole seed");
+  addRecordRow(mixinRecord, "Service", cloud.endpoint || "Lightrider EMS");
+  addRecordRow(mixinRecord, "Status", live ? (emsEnabled ? (mixinOn ? cloudLabel : "Connected, mix-in off") : "Off") : "No live data");
+  addRecordRow(mixinRecord, "Packets received", live ? String(mixed) : "");
+  addRecordRow(mixinRecord, "Packets rejected", live ? String(rejected) : "");
+  addRecordRow(mixinRecord, "Last packet", cloud.last_mixin_unix ? `${formatSeedTime(cloud.last_mixin_unix)} (${formatAge(cloud.last_mixin_unix)})` : "None yet");
+  addRecordRow(mixinRecord, "Quality score", mixed > 0 ? `${cloud.last_quality_score} / 100` : "");
+  addRecordRow(mixinRecord, "Verified with", cloud.verification_alg);
+  addRecordRow(mixinRecord, "Counts toward strength", "No. Extra input only; the hardware source stays the seed.");
+
+  // Technical details (for auditors), collapsed by default.
+  const specs = byId("entropy-specs");
+  specs.replaceChildren();
+  addRecordRow(specs, "Provider", local.name || "lightrider-local");
+  addRecordRow(specs, "Source kind", local.source_kind);
+  addRecordRow(specs, "Construction", local.rbg_construction);
+  addRecordRow(specs, "Health tests", local.health_tests);
+  addRecordRow(specs, "Generator", local.drbg);
+  addRecordRow(specs, "Bytes checked", live ? String(local.seed_bytes_verified) : "");
+  addRecordRow(specs, "Strength claim", local.security_strength_claim);
+  addRecordRow(specs, "ESV certified", local.esv_certified === false ? "No" : "");
+  addRecordRow(specs, "Cloud mixing method", cloud.mixing_method);
+  addRecordRow(specs, "Cloud policy", cloud.policy);
+  addRecordRow(specs, "Cloud interval", cloud.interval_s ? `${cloud.interval_s} s, ${cloud.packet_bytes} bytes` : "");
+  addRecordRow(specs, "Last verification", cloud.last_verification);
 }
 
 async function refreshEntropy() {
@@ -232,7 +312,7 @@ async function toggleMixin() {
   toggle.disabled = true;
   try {
     await api("/api/entropy/mixin", {method: "POST", body: JSON.stringify({enabled: toggle.checked})});
-    showToast(toggle.checked ? "Cloud entropy mix-in enabled." : "Cloud entropy mix-in disabled.", "success");
+    showToast(toggle.checked ? "Cloud entropy on. The first packet arrives within a few seconds." : "Cloud entropy off.", "success");
   } catch (error) {
     toggle.checked = !toggle.checked;
     showToast(error.message);

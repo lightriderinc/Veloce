@@ -55,6 +55,13 @@ public:
                      const std::vector<uint8_t>& sig, bool& valid,
                      std::string& err);
 
+    // Ed25519 signature verification (RFC 8032) for EMS receipts. Verify
+    // only; the provider has no Ed25519 key generation or signing.
+    bool ed25519Verify(const std::vector<uint8_t>& pub,
+                       const std::vector<uint8_t>& msg,
+                       const std::vector<uint8_t>& sig, bool& valid,
+                       std::string& err);
+
     bool ok() const { return loaded_; }
     const std::string& sha256() const { return sha256_; }
     const std::string& path() const { return path_; }

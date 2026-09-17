@@ -9,7 +9,7 @@ use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
 use std::process::Command;
 
-const VERSION: &str = "1.2.0";
+const VERSION: &str = "1.3.0";
 const BANNER: &str = r#"
   _   _  ____  __     ___    ____  ____
  | | | || ___| | |   / _ \  / ___|| ___|
@@ -284,6 +284,7 @@ fn usage() -> ! {
          providers         crypto providers\n  \
          entropy           entropy providers incl. cloud mix-in state\n  \
          mixin <on|off>    enable/disable the cloud-entropy mix-in\n  \
+         ems <on|off>      enable/disable the cloud EMS connection (mix-in requires on)\n  \
          policies          policy profiles\n  \
          cbom [cyclonedx]  export CBOM (default: records format)\n  \
          diag              write a redacted diagnostic bundle\n  \
@@ -323,6 +324,18 @@ fn main() {
                 }
             };
             run("set_entropy_mixin", &format!("{{\"enabled\":{}}}", enabled));
+        }
+        "ems" => {
+            let state = args.get(1).map(String::as_str).unwrap_or("");
+            let enabled = match state {
+                "on" => true,
+                "off" => false,
+                _ => {
+                    eprintln!("veloce ems: expected on or off");
+                    std::process::exit(2);
+                }
+            };
+            run("set_ems_mode", &format!("{{\"enabled\":{}}}", enabled));
         }
         "policies" => run("list_policy_profiles", "{}"),
         "cbom" => {

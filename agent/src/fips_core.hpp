@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace veloce {
 
@@ -68,6 +69,20 @@ public:
 
     // FIPS DRBG output. False (and degraded state) on failure.
     bool randomBytes(uint8_t* out, size_t len);
+
+    // Cloud entropy mix-in (spec 6): re-instantiate the DRBG with fresh
+    // seed-source entropy from the registered callback and `nonce` as the
+    // SP 800-90A instantiation nonce. The nonce is mixed by Hash_df but
+    // credited with zero entropy; the seed source remains the sole credit.
+    // The module exports no additional-input or reseed entry point, so
+    // re-instantiation through wc_InitRngNonce is the mixing mechanism.
+    bool reinstantiateWithNonce(const std::vector<uint8_t>& nonce,
+                                std::string& err);
+
+    // Resolve an exported symbol of the loaded module (used by the EMS
+    // client for the module's TLS 1.3 client, so the cloud fetch uses FIPS
+    // cryptography). Null when the module is not loaded.
+    void* symbol(const char* name) const;
 
     bool ok() const { return loaded_ && !degraded_; }
     bool degraded() const { return degraded_; }

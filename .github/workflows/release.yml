@@ -1,7 +1,7 @@
 name: Release
 
 # Builds the click-to-run desktop packages and attaches them to a GitHub
-# Release. Push a tag (v1.2.0) or dispatch with a version. The release is
+# Release. Push a tag (v1.3.0) or dispatch with a version. The release is
 # created as a draft so the owner reviews and publishes it; publishing is
 # what makes the assets public and triggers the Zenodo archive.
 #
@@ -19,7 +19,7 @@ on:
       version:
         description: Release version (also the tag, prefixed with v)
         required: true
-        default: 1.2.0
+        default: 1.3.0
 
 permissions:
   contents: write

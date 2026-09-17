@@ -104,7 +104,9 @@ step 8 is the acceptance check.
       <public-tree>\wolfcrypt\src\random.c <public-tree>\wolfcrypt\src\sha256.c `
       <public-tree>\wolfcrypt\src\hash.c <public-tree>\wolfcrypt\src\memory.c `
       <public-tree>\wolfcrypt\src\wc_port.c <public-tree>\wolfcrypt\src\error.c `
-      <public-tree>\wolfcrypt\src\logging.c `
+      <public-tree>\wolfcrypt\src\logging.c <public-tree>\wolfcrypt\src\ed25519.c `
+      <public-tree>\wolfcrypt\src\ge_operations.c <public-tree>\wolfcrypt\src\fe_operations.c `
+      <public-tree>\wolfcrypt\src\sha512.c `
       /Fe:veloce-pqc.dll /link advapi32.lib bcrypt.lib
    cl /DWOLFSSL_USER_SETTINGS /I scripts\pqc /I <public-tree> scripts\pqc\selftest.c veloce-pqc.lib
    .\selftest.exe
@@ -129,7 +131,9 @@ step 8 is the acceptance check.
    cmake --build build\agent-windows --config Release
    ```
 
-   Output: `build\agent-windows\Release\veloce-agent.exe`.
+   Output: `build\agent-windows\Release\veloce-agent.exe`. The agent's
+   cloud entropy client uses the FIPS DLL's TLS functions and Winsock
+   (`ws2_32`, linked by CMake); no other network library is needed.
 
 6. **qSearch and CLI.**
 

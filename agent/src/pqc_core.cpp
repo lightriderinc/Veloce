@@ -14,6 +14,7 @@
 #include <wolfssl/wolfcrypt/settings.h>
 #include <wolfssl/wolfcrypt/wc_mlkem.h>
 #include <wolfssl/wolfcrypt/wc_mldsa.h>
+#include <wolfssl/wolfcrypt/ed25519.h>
 
 namespace veloce {
 
@@ -45,6 +46,12 @@ using FnDsaSignCtxWithSeed = int (*)(wc_MlDsaKey*, const byte*, byte, byte*,
 using FnDsaVerifyCtx = int (*)(wc_MlDsaKey*, const byte*, word32, const byte*,
                                byte, const byte*, word32, int*);
 
+using FnEdInit = int (*)(ed25519_key*);
+using FnEdFree = void (*)(ed25519_key*);
+using FnEdImportPublic = int (*)(const byte*, word32, ed25519_key*);
+using FnEdVerifyMsg = int (*)(const byte*, word32, const byte*, word32, int*,
+                              ed25519_key*);
+
 constexpr int kMlDsa65Level = 3;         // WC_ML_DSA_65
 constexpr size_t kMlDsaSeedSz = 32;      // FIPS 204 xi
 constexpr size_t kMlDsaSignRndSz = 32;   // FIPS 204 rnd (hedged)
@@ -72,6 +79,10 @@ struct PqcCore::Impl {
     FnDsaImportPrivRaw dsaImportPrivRaw = nullptr;
     FnDsaSignCtxWithSeed dsaSignCtxWithSeed = nullptr;
     FnDsaVerifyCtx dsaVerifyCtx = nullptr;
+    FnEdInit edInit = nullptr;
+    FnEdFree edFree = nullptr;
+    FnEdImportPublic edImportPublic = nullptr;
+    FnEdVerifyMsg edVerifyMsg = nullptr;
     // The provider build is SINGLE_THREADED; serialize every call.
     std::mutex m;
 
@@ -130,6 +141,18 @@ bool PqcCore::load(const std::string& libPath,
         sym("wc_MlDsaKey_SignCtxWithSeed"));
     impl_->dsaVerifyCtx =
         reinterpret_cast<FnDsaVerifyCtx>(sym("wc_MlDsaKey_VerifyCtx"));
+    impl_->edInit = reinterpret_cast<FnEdInit>(sym("wc_ed25519_init"));
+    impl_->edFree = reinterpret_cast<FnEdFree>(sym("wc_ed25519_free"));
+    impl_->edImportPublic =
+        reinterpret_cast<FnEdImportPublic>(sym("wc_ed25519_import_public"));
+    impl_->edVerifyMsg =
+        reinterpret_cast<FnEdVerifyMsg>(sym("wc_ed25519_verify_msg"));
+    if (!impl_->edInit || !impl_->edFree || !impl_->edImportPublic ||
+        !impl_->edVerifyMsg) {
+        err = "PQC provider lacks Ed25519 verification symbols (rebuild "
+              "with scripts/build_pqc.sh)";
+        return false;
+    }
 
     if (!impl_->kemInit || !impl_->kemFree || !impl_->kemMakeKey ||
         !impl_->kemEncodePub || !impl_->kemDecodePub ||
@@ -390,6 +413,66 @@ bool PqcCore::selfTest(const RandFn& rand, std::string& err) {
     }
     zeroizeVec(priv);
     zeroizeVec(dpriv);
+
+    // Ed25519 known-answer test: RFC 8032 section 7.1, test 1 (empty
+    // message). Exercises the EMS receipt verification path.
+    static const uint8_t kEdPub[32] = {
+        0xd7,0x5a,0x98,0x01,0x82,0xb1,0x0a,0xb7,0xd5,0x4b,0xfe,0xd3,0xc9,0x64,0x07,0x3a,
+        0x0e,0xe1,0x72,0xf3,0xda,0xa6,0x23,0x25,0xaf,0x02,0x1a,0x68,0xf7,0x07,0x51,0x1a};
+    static const uint8_t kEdSig[64] = {
+        0xe5,0x56,0x43,0x00,0xc3,0x60,0xac,0x72,0x90,0x86,0xe2,0xcc,0x80,0x6e,0x82,0x8a,
+        0x84,0x87,0x7f,0x1e,0xb8,0xe5,0xd9,0x74,0xd8,0x73,0xe0,0x65,0x22,0x49,0x01,0x55,
+        0x5f,0xb8,0x82,0x15,0x90,0xa3,0x3b,0xac,0xc6,0x1e,0x39,0x70,0x1c,0xf9,0xb4,0x6b,
+        0xd2,0x5b,0xf5,0xf0,0x59,0x5b,0xbe,0x24,0x65,0x51,0x41,0x43,0x8e,0x7a,0x10,0x0b};
+    std::vector<uint8_t> edPub(kEdPub, kEdPub + 32);
+    std::vector<uint8_t> edSig(kEdSig, kEdSig + 64);
+    std::vector<uint8_t> empty;
+    bool edValid = false;
+    if (!ed25519Verify(edPub, empty, edSig, edValid, err) || !edValid) {
+        err = err.empty() ? "ed25519 KAT: RFC 8032 signature did not verify"
+                          : err;
+        return false;
+    }
+    edSig[0] ^= 0x01;
+    edValid = true;
+    ed25519Verify(edPub, empty, edSig, edValid, ignore);
+    if (edValid) {
+        err = "ed25519 negative test: corrupted signature accepted";
+        return false;
+    }
+    return true;
+}
+
+bool PqcCore::ed25519Verify(const std::vector<uint8_t>& pub,
+                            const std::vector<uint8_t>& msg,
+                            const std::vector<uint8_t>& sig, bool& valid,
+                            std::string& err) {
+    valid = false;
+    if (!loaded_) { err = "provider not loaded"; return false; }
+    if (pub.size() != ED25519_PUB_KEY_SIZE || sig.size() != ED25519_SIG_SIZE) {
+        err = "ed25519 public key or signature has an invalid size";
+        return false;
+    }
+    std::lock_guard<std::mutex> lk(impl_->m);
+    auto key = std::make_unique<ed25519_key>();
+    if (impl_->edInit(key.get()) != 0) {
+        err = "ed25519 init failed";
+        return false;
+    }
+    if (impl_->edImportPublic(pub.data(), static_cast<word32>(pub.size()),
+                              key.get()) != 0) {
+        impl_->edFree(key.get());
+        err = "ed25519 public key import failed";
+        return false;
+    }
+    int res = 0;
+    const byte* msgPtr = msg.empty() ? reinterpret_cast<const byte*>("")
+                                     : msg.data();
+    int rc = impl_->edVerifyMsg(sig.data(), static_cast<word32>(sig.size()),
+                                msgPtr, static_cast<word32>(msg.size()), &res,
+                                key.get());
+    impl_->edFree(key.get());
+    valid = (rc == 0 && res == 1);
     return true;
 }
 

@@ -15,7 +15,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const VERSION: &str = "1.2.0";
+const VERSION: &str = "1.3.0";
 const MAX_FILE_BYTES: u64 = 4 * 1024 * 1024;
 
 #[derive(Default)]

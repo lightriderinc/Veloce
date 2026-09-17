@@ -27,8 +27,11 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import parse_qs, urlparse
 
 
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.3.0"
 MAX_REQUEST_BYTES = 64 * 1024
+# Lightrider EMS egress and its receipt verification key (GET /v1/pubkey).
+EMS_ENDPOINT = "https://ems.lightriderinc.com"
+EMS_PUBKEY_HEX = "cdec782a5dccf410739222245344883ca70d9a5788948f83a15cf94da3e355bf"
 MAX_UI_FINDINGS = 500
 
 
@@ -286,7 +289,9 @@ class DesktopService:
             "fips_record": str(fips_record_path.resolve()),
             "pqc_lib": str(pqc_library.resolve()),
             "pqc_record": str(pqc_record_path.resolve()),
-            "ems": {"mode": "disabled", "endpoint": "", "entropy_mixin": "off"},
+            "ems": {"mode": "disabled", "endpoint": EMS_ENDPOINT,
+                    "policy": "fastest_available", "pubkey_hex": EMS_PUBKEY_HEX,
+                    "interval_s": 60, "bytes": 64, "entropy_mixin": "off"},
             # rdseed: CPU hardware entropy on x86-64. os-drbg (arm64 only):
             # OS DRBG output, an unvalidated SP 800-90C chain, no strength claim.
             "entropy": {"source": _default_entropy_source()},
@@ -407,11 +412,19 @@ class DesktopService:
         return snapshot
 
     def set_entropy_mixin(self, enabled: bool) -> Dict[str, Any]:
+        """Turn the cloud mix-in on or off. Enabling also switches EMS mode on
+        when the agent still has it disabled (the shipped default)."""
         cli = find_tool("veloce", "VELOCE_CLI")
         if cli is None:
             raise RuntimeError("Veloce CLI is not installed in this release")
-        return run_json_command(
-            [str(cli), "--json", "mixin", "on" if enabled else "off"])
+        try:
+            return run_json_command(
+                [str(cli), "--json", "mixin", "on" if enabled else "off"])
+        except RuntimeError as exc:
+            if not enabled or "EMS is disabled" not in str(exc):
+                raise
+        run_json_command([str(cli), "--json", "ems", "on"])
+        return run_json_command([str(cli), "--json", "mixin", "on"])
 
     def select_directory(self) -> str:
         system = platform.system()

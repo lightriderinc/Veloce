@@ -809,19 +809,34 @@ is always false. Authentication is a per-device Bearer API key issued by the
 The agent is the only Veloce component that opens the connection, verifies the receipt
 signature against the pinned EMS public key, and enforces freshness before any use.
 mTLS device enrollment remains the target transport hardening once EMS supports it.
+Policies accepted by the service are \code{fastest\_available} (Free tier),
+\code{highest\_quality}, and \code{quantum\_verified}; the receipt signature is computed
+over the canonical receipt bytes (sorted keys, \code{signature} removed, compact JSON).
 
 \subsection{User-controllable cloud entropy (V1 addition)}\label{sec:cloud-entropy}
 EMS may deliver entropy \emph{to} devices; devices never send entropy to EMS.
 
 \textbf{Design.}
 \begin{enumerate}
-  \item The agent (when \code{entropy\_mixin:\ on}) periodically fetches an authenticated,
-        freshness-checked entropy packet from EMS over mTLS.
-  \item The packet is injected into the wolfCrypt DRBG as SP~800-90A
-        \emph{additional input} on reseed/generate: it is cryptographically mixed in but
-        contributes \emph{zero} to the credited entropy claim. The local Lightrider
-        entropy provider remains the sole seed. The FIPS certificate claims are
-        unaffected.
+  \item The agent (when \code{ems.mode:\ enabled} and \code{entropy\_mixin:\ on})
+        periodically fetches an entropy packet from EMS over HTTPS
+        (\code{POST /v1/entropy/request}) using the TLS client of the loaded FIPS module,
+        with the ISRG Root X1 anchor pinned (\code{ems.ca\_file} overrides), an optional
+        Bearer API key (the Free tier is keyless on \code{fastest\_available}), and a
+        receipt verified against the pinned service key (\code{ems.pubkey\_hex};
+        Ed25519 via the PQC provider's verify-only implementation, or ML-DSA-65) after
+        canonicalization identical to the service (sorted keys, signature removed,
+        compact JSON); freshness (\code{ems.max\_age\_s}), packet length, health flags,
+        and \code{raw\_entropy\_stored} are checked. mTLS device enrollment remains the
+        target transport hardening once EMS supports it.
+  \item The packet is mixed into the wolfCrypt DRBG as the SP~800-90A
+        \emph{instantiation nonce}: certificate \#4718 exports no additional-input or
+        reseed entry point, so the agent re-instantiates the DRBG through
+        \code{wc\_InitRngNonce()}, which draws fresh seed-source entropy through the
+        registered callback and mixes the packet as nonce via Hash\_df. The packet is
+        cryptographically mixed in but contributes \emph{zero} to the credited entropy
+        claim. The local Lightrider entropy provider remains the sole seed. The FIPS
+        certificate claims are unaffected.
   \item User control: enable/disable per config or at runtime via the SDK
         (\code{set\_entropy\_mixin(...)}); state is visible in \code{health()},
         \code{list\_entropy\_providers()}, validation status, and the CBOM

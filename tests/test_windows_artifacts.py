@@ -80,7 +80,7 @@ def test_wix_package_carries_branding_upgrade_and_ui():
 
 def test_release_builder_wires_branding_signing_and_checksums():
     text = (WINDOWS / "build-release.ps1").read_text(encoding="utf-8")
-    assert '$Version = "1.2.0"' in text
+    assert '$Version = "1.3.0"' in text
     assert "--version 5.0.2" in text and "$WixMajor -ne 5" in text
     for wf in ("release.yml", "desktop-discovery-release.yml"):
         assert "dotnet tool install --global wix --version 5.0.2" in \
@@ -110,7 +110,7 @@ def test_release_workflow_publishes_click_to_run_packages():
         assert required in text, f"release.yml lacks {required}"
     assert (ROOT / "docs" / "windows-quickstart.md").is_file()
     assert (ROOT / "docs" / "macos-quickstart.md").is_file()
-    assert (ROOT / "docs" / "release-notes" / "1.2.0.md").is_file()
+    assert (ROOT / "docs" / "release-notes" / "1.3.0.md").is_file()
 
 
 def test_windows_fire_up_uses_records_pipe_and_state_dir():

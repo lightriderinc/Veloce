@@ -1,8 +1,49 @@
 # Veloce V1 status: pre-release
 
 Spec: plan/veloce-engineering-guide.pdf (v0.3, 2026-08-27).
-Date: 2026-09-17. Version: 1.2.0. Platform validated by this run: Linux
+Date: 2026-09-17. Version: 1.3.0. Platform validated by this run: Linux
 x86-64. Gate battery: `bash scripts/run_gates.sh` -- all tests passing.
+
+## 1.3.0: cloud entropy integration and the administrator entropy view
+
+The cloud entropy mix-in (spec 6) is implemented against the production
+Lightrider EMS egress (`https://ems.lightriderinc.com`, REST
+`POST /v1/entropy/request`, `GET /v1/pubkey`):
+
+1. **Transport.** `agent/src/ems_client.cpp` performs the HTTPS request
+   with the TLS client of the loaded FIPS module (functions resolved from
+   the same hash-verified library), pinning the ISRG Root X1 anchor by
+   default (`ems.ca_file` overrides). The Free tier needs no API key
+   (`fastest_available` pool); `ems.api_key` unlocks the higher pools.
+2. **Verification.** The receipt is canonicalized exactly as the service
+   does (sorted keys, `signature` removed, compact JSON) from the raw
+   response text, and the signature is verified against the pinned key
+   (`ems.pubkey_hex`) with Ed25519 (RFC 8032, added to the PQC provider as
+   verify-only with a known-answer test) or ML-DSA-65. Freshness
+   (`ems.max_age_s`), packet length, health flags, and `raw_entropy_stored`
+   are checked. Any failure is counted, reported, and ignored (fail-safe).
+3. **Mixing.** Certificate #4718 exports no additional-input or reseed entry
+   point, so a verified packet is mixed by re-instantiating the DRBG with
+   `wc_InitRngNonce`: fresh RDSEED entropy from the seed callback plus the
+   packet as the SP 800-90A instantiation nonce. Zero credited entropy; the
+   local seed source remains the sole credit; the FIPS position is unchanged.
+4. **Control and status.** `set_ems_mode` (agent), `veloce ems on|off`
+   (CLI), `set_ems_mode` (SDK); the desktop switch enables EMS and the
+   mix-in together. `cloud-entropy-mixin` reports endpoint, policy,
+   verification algorithm, packets mixed and rejected, last packet, quality
+   score, and last error. Default remains disabled (zero network traffic,
+   G3 test unchanged).
+5. **Gate.** `tests/test_gate_g3_ems_mixin.py` runs a mock EMS over TLS
+   with a test Ed25519 key: good packets are mixed (the seed callback runs
+   again, approved mode holds), tampered receipts are rejected without
+   affecting local operation, and the live service's published key is
+   checked against the pinned default.
+
+The desktop Entropy page was rewritten for administrators: a four-step flow
+(hardware source, health checks, FIPS random generator, keys and
+signatures) with the cloud feed as an optional extra input, plain-language
+states, and a collapsed technical-details section carrying the
+compliance-grade fields.
 
 ## 1.2.0: Windows release track and desktop interface
 

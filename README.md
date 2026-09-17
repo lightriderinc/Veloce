@@ -12,8 +12,10 @@ Veloce V1 delivers two products in one SDK:
   Lightrider local entropy provider (CPU RDSEED hardware entropy with
   SP 800-90B RCT/APT health tests on every seed block, fail-closed), with
   ML-KEM-768 and ML-DSA-65 provided beside the FIPS boundary, consumed from
-  a pure-Python SDK and a CLI over authenticated local IPC. Optional EMS cloud connectivity is off
-  by default with a zero-network-traffic guarantee.
+  a pure-Python SDK and a CLI over authenticated local IPC. Optional cloud entropy from the
+  Lightrider EMS (signed packets, verified locally, mixed as the DRBG nonce
+  with zero credited entropy) is off by default with a zero-network-traffic
+  guarantee; `veloce ems on` and `veloce mixin on` enable it.
 
 The authoritative implementation spec is
 [`plan/veloce-engineering-guide.pdf`](plan/veloce-engineering-guide.pdf).

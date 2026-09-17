@@ -100,7 +100,7 @@ $ConfigObject = [ordered]@{
     fips_record = $FipsRecordPath
     pqc_lib     = $PqcLib
     pqc_record  = $PqcRecordPath
-    ems         = [ordered]@{ mode = "disabled"; endpoint = ""; entropy_mixin = "off" }
+    ems         = [ordered]@{ mode = "disabled"; endpoint = "https://ems.lightriderinc.com"; policy = "fastest_available"; pubkey_hex = "cdec782a5dccf410739222245344883ca70d9a5788948f83a15cf94da3e355bf"; interval_s = 60; bytes = 64; entropy_mixin = "off" }
     # rdseed: CPU hardware entropy (default). os-drbg: BCryptGenRandom output,
     # an unvalidated SP 800-90C chain with no security-strength claim.
     entropy     = [ordered]@{ source = $(if ($env:VELOCE_ENTROPY_SOURCE) { $env:VELOCE_ENTROPY_SOURCE } else { "rdseed" }) }

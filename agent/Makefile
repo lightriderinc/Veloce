@@ -12,7 +12,7 @@ PQC_CFG := $(ROOT)/scripts/pqc
 CXX ?= g++
 CXXFLAGS := -std=c++17 -O2 -Wall -Wextra -pthread
 
-OBJS := $(BUILD)/main.o $(BUILD)/fips_core.o $(BUILD)/pqc_core.o
+OBJS := $(BUILD)/main.o $(BUILD)/fips_core.o $(BUILD)/pqc_core.o $(BUILD)/ems_client.o
 
 all: $(BIN)/veloce-agent
 
@@ -20,10 +20,14 @@ $(BUILD) $(BIN):
 	mkdir -p $@
 
 $(BUILD)/main.o: src/main.cpp src/json.hpp src/keystore.hpp \
-		src/fips_core.hpp src/pqc_core.hpp | $(BUILD)
+		src/fips_core.hpp src/pqc_core.hpp src/ems_client.hpp | $(BUILD)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD)/fips_core.o: src/fips_core.cpp src/fips_core.hpp src/platform_loader.hpp src/sha256.hpp \
+		| $(BUILD)
+	$(CXX) $(CXXFLAGS) -I$(FIPS_INC) -c $< -o $@
+
+$(BUILD)/ems_client.o: src/ems_client.cpp src/ems_client.hpp src/fips_core.hpp \
 		| $(BUILD)
 	$(CXX) $(CXXFLAGS) -I$(FIPS_INC) -c $< -o $@
 

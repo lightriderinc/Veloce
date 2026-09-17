@@ -15,8 +15,10 @@ The UI provides:
   SHA-256 verification, module status, CAST results, local entropy verification
   counters, and PQC provider self-test state;
 - an on-demand **Run self-tests** button;
-- an Entropy page with streaming specifications and the cloud EMS mix-in
-  toggle.
+- an Entropy page written for administrators: the flow from hardware
+  source through health checks and the FIPS generator to keys, each with a
+  plain-language state, the cloud entropy switch with connection status,
+  and a collapsed technical-details section.
 
 The interface does not perform cryptography. It invokes the native qSearch
 binary and reads validation evidence from the local Veloce agent through the
@@ -70,6 +72,12 @@ live agent response:
 - the PQC provider self-test passed.
 
 Recorded metadata alone never turns the dashboard green.
+
+Cloud entropy: the switch on the Entropy page enables the EMS connection
+and the mix-in together (`veloce ems on`, `veloce mixin on`). The packaged
+agent configuration points at `https://ems.lightriderinc.com` with the
+service key pinned; the connection is off until the administrator turns it
+on.
 
 ### Discovery only
 

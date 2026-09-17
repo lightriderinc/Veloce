@@ -108,7 +108,13 @@ def main() -> int:
         "fips_record": os.path.join(fips_dir, "build-record.json"),
         "pqc_lib": pqc_lib,
         "pqc_record": os.path.join(pqc_dir, "build-record.json"),
-        "ems": {"mode": "disabled", "endpoint": "", "entropy_mixin": "off"},
+        # Cloud EMS: off by default (zero network traffic). Enable with
+        # `veloce ems on` then `veloce mixin on`, or edit mode below. The
+        # pinned key is GET https://ems.lightriderinc.com/v1/pubkey.
+        "ems": {"mode": "disabled", "endpoint": "https://ems.lightriderinc.com",
+                "policy": "fastest_available",
+                "pubkey_hex": "cdec782a5dccf410739222245344883ca70d9a5788948f83a15cf94da3e355bf",
+                "interval_s": 60, "bytes": 64, "entropy_mixin": "off"},
         "entropy": {"source": args.entropy_source},
     }
     os.makedirs(os.path.dirname(args.out), exist_ok=True)

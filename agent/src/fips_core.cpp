@@ -46,6 +46,7 @@ using FnFreeRng = int (*)(WC_RNG*);
 using FnGenerateBlock = int (*)(WC_RNG*, byte*, word32);
 using FnLibVersion = const char* (*)(void);
 using FnSetSeedCb = int (*)(wc_RngSeed_Cb);
+using FnInitRngNonce = int (*)(WC_RNG*, byte*, word32);
 
 // ---------------------------------------------------------------------
 // Lightrider local entropy provider (spec 5.1, seed source revised
@@ -262,6 +263,7 @@ struct FipsCore::Impl {
     FnGenerateBlock generateBlock = nullptr;
     FnLibVersion libVersion = nullptr;
     FnSetSeedCb setSeedCb = nullptr;
+    FnInitRngNonce initRngNonce = nullptr;
     WC_RNG rng;
     bool rngReady = false;
     std::mutex m;
@@ -389,8 +391,11 @@ bool FipsCore::load(const std::string& libPath,
     impl_->libVersion =
         reinterpret_cast<FnLibVersion>(sym("wolfSSL_lib_version"));
     impl_->setSeedCb = reinterpret_cast<FnSetSeedCb>(sym("wc_SetSeed_Cb"));
+    impl_->initRngNonce =
+        reinterpret_cast<FnInitRngNonce>(sym("wc_InitRngNonce"));
     if (!impl_->getStatus || !impl_->runAllCast || !impl_->initRng ||
-        !impl_->freeRng || !impl_->generateBlock || !impl_->setSeedCb) {
+        !impl_->freeRng || !impl_->generateBlock || !impl_->setSeedCb ||
+        !impl_->initRngNonce) {
         err = "required FIPS module symbols missing (not a FIPS build?)";
         return false;
     }
@@ -509,6 +514,42 @@ bool FipsCore::randomBytes(uint8_t* out, size_t len) {
         return false;
     }
     return true;
+}
+
+bool FipsCore::reinstantiateWithNonce(const std::vector<uint8_t>& nonce,
+                                      std::string& err) {
+    if (!ok()) {
+        err = "FIPS core is not in the approved state";
+        return false;
+    }
+    if (nonce.empty() || nonce.size() > 4096) {
+        err = "nonce size out of range (1..4096 bytes)";
+        return false;
+    }
+    std::lock_guard<std::mutex> lk(impl_->m);
+    if (!impl_->rngReady) {
+        err = "DRBG not instantiated";
+        return false;
+    }
+    impl_->freeRng(&impl_->rng);
+    impl_->rngReady = false;
+    memset(&impl_->rng, 0, sizeof(impl_->rng));
+    std::vector<uint8_t> copy(nonce);
+    int rc = impl_->initRngNonce(&impl_->rng, copy.data(),
+                                 static_cast<word32>(copy.size()));
+    std::memset(copy.data(), 0, copy.size());
+    if (rc != 0) {
+        degraded_ = true;
+        lastError_ = err = "FIPS DRBG re-instantiate with nonce failed (" +
+                           std::to_string(rc) + "); entropy fail-closed";
+        return false;
+    }
+    impl_->rngReady = true;
+    return true;
+}
+
+void* FipsCore::symbol(const char* name) const {
+    return loaded_ ? impl_->library.symbol(name) : nullptr;
 }
 
 std::string FipsCore::libVersion() const {

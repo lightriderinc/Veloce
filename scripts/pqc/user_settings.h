@@ -34,6 +34,16 @@
 #define WOLFSSL_DILITHIUM_NO_ASN1
 #define NO_ASN
 
+/* Ed25519 signature verification (RFC 8032) for EMS receipt checks: the
+ * cloud entropy service signs every receipt with Ed25519 (or ML-DSA-65).
+ * Verify and public-key import only; no key generation or signing. */
+#define HAVE_ED25519
+#define WOLFSSL_SHA512
+#define NO_ED25519_SIGN
+#define NO_ED25519_MAKE_KEY
+#define NO_ED25519_KEY_EXPORT
+#define NO_ED25519_CLIENT_AUTH
+
 /* The agent serializes provider calls behind one mutex. */
 #define SINGLE_THREADED
 

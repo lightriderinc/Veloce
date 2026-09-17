@@ -51,6 +51,26 @@ To stop the user-launched agent:
 kill "$(cat "$HOME/.veloce/agent.pid")"
 ```
 
+## Optional cloud entropy (Lightrider EMS)
+
+Cloud entropy is off by default and the agent opens no network connection.
+To turn it on:
+
+```bash
+bin/veloce ems on
+bin/veloce mixin on
+bin/veloce entropy      # cloud-entropy-mixin: packets_mixed, last_mixin, last_error
+```
+
+The agent fetches a signed 64-byte packet every 60 seconds from
+`https://ems.lightriderinc.com`, verifies the receipt against the pinned
+service key, and mixes it into the FIPS generator as extra input. The
+hardware source remains the only credited entropy, so the FIPS position is
+unchanged; if the cloud is unreachable the agent keeps running locally. The
+Free tier needs no key. For the higher-quality pools, add `"api_key"` and
+set `"policy"` to `highest_quality` or `quantum_verified` in the `ems`
+block of `~/.veloce/agent.json`, then restart the agent.
+
 ## Optional Python SDK
 
 The Python API is optional. Install the wheel shipped in this archive, then

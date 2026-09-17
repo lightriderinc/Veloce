@@ -178,8 +178,8 @@
       <section id="entropy-page" class="page">
         <div class="hero-card">
           <div>
-            <p class="eyebrow">Random-bit generation</p>
-            <h2>Entropy streaming</h2>
+            <p class="eyebrow">Entropy</p>
+            <h2>Where your randomness comes from</h2>
             <p id="entropy-message" class="muted">Reading the local Veloce agent…</p>
           </div>
           <div class="hero-actions">
@@ -187,52 +187,91 @@
           </div>
         </div>
 
+        <div class="flow" role="list" aria-label="Entropy flow">
+          <div class="flow-step" role="listitem">
+            <span class="flow-icon" aria-hidden="true">⚡</span>
+            <strong>Hardware source</strong>
+            <span id="flow-source-state" class="flow-state">Checking</span>
+            <p id="flow-source-text">Random bits from this computer's processor</p>
+          </div>
+          <div class="flow-arrow" aria-hidden="true">→</div>
+          <div class="flow-step" role="listitem">
+            <span class="flow-icon" aria-hidden="true">✓</span>
+            <strong>Health checks</strong>
+            <span id="flow-health-state" class="flow-state">Checking</span>
+            <p id="flow-health-text">Every block is tested before use</p>
+          </div>
+          <div class="flow-arrow" aria-hidden="true">→</div>
+          <div class="flow-step" role="listitem">
+            <span class="flow-icon" aria-hidden="true">⚙</span>
+            <strong>FIPS random generator</strong>
+            <span id="flow-drbg-state" class="flow-state">Checking</span>
+            <p id="flow-drbg-text">Certified generator, refreshed from the source</p>
+          </div>
+          <div class="flow-arrow" aria-hidden="true">→</div>
+          <div class="flow-step" role="listitem">
+            <span class="flow-icon" aria-hidden="true">🔑</span>
+            <strong>Keys and signatures</strong>
+            <span id="flow-keys-state" class="flow-state">Checking</span>
+            <p>Post-quantum keys, signatures, TLS</p>
+          </div>
+        </div>
+        <div class="flow-cloud">
+          <span class="flow-icon" aria-hidden="true">☁</span>
+          <span><strong>Cloud entropy</strong> from Lightrider EMS joins the generator as extra input. It never replaces the hardware source.</span>
+          <span id="flow-cloud-state" class="flow-state">Off</span>
+        </div>
+
         <div class="metric-grid">
           <article class="metric-card">
-            <span class="metric-label">Local provider</span>
-            <strong id="provider-value">—</strong>
-            <small id="provider-detail">Awaiting live status</small>
+            <span class="metric-label">Hardware source</span>
+            <strong id="src-value">—</strong>
+            <small id="src-detail">Awaiting live status</small>
           </article>
           <article class="metric-card">
-            <span class="metric-label">Seed blocks verified</span>
-            <strong id="blocks-value">—</strong>
-            <small>RCT + APT passed before every seed</small>
+            <span class="metric-label">Health checks</span>
+            <strong id="health-value">—</strong>
+            <small id="health-detail">Blocks checked before use</small>
           </article>
           <article class="metric-card">
-            <span class="metric-label">Health failures</span>
-            <strong id="failures-value">—</strong>
-            <small>Any failure halts key generation</small>
+            <span class="metric-label">Random generator</span>
+            <strong id="drbg-value">—</strong>
+            <small id="drbg-detail">Last refresh time</small>
           </article>
           <article class="metric-card">
-            <span class="metric-label">Last seed</span>
-            <strong id="last-seed-value">—</strong>
-            <small>DRBG seed / reseed time</small>
+            <span class="metric-label">Cloud entropy</span>
+            <strong id="cloud-value">—</strong>
+            <small id="cloud-detail">Optional extra input</small>
           </article>
         </div>
 
         <div class="content-grid">
-          <article class="panel detail-panel">
-            <div class="panel-heading"><div><p class="eyebrow">Streaming specs</p><h3>Local generator</h3></div></div>
-            <dl id="entropy-specs" class="record-list"></dl>
-            <div class="boundary-note">
-              <strong>No raw entropy</strong>
-              <p>Raw entropy never leaves the agent and is never displayed. This page shows specifications and verification counters only.</p>
-            </div>
-          </article>
           <article class="panel">
             <div class="panel-heading">
-              <div><p class="eyebrow">Cloud EMS</p><h3>Cloud entropy mix-in</h3></div>
+              <div><p class="eyebrow">Cloud entropy</p><h3>Lightrider EMS</h3></div>
               <span id="mixin-state" class="tag">off</span>
             </div>
-            <p class="muted">When enabled, the agent fetches signed entropy packets from the Lightrider EMS and mixes them into the DRBG as additional input. This adds zero credited entropy: the local verified provider stays the only seed and the FIPS claim is unchanged. If EMS is unreachable, mixing is skipped and local operation continues.</p>
+            <p class="muted">Turn this on to receive signed randomness packets from the Lightrider cloud. Each packet is checked for authenticity and freshness, then folded into the generator as extra input. If the cloud is unreachable, Veloce keeps running on the hardware source alone.</p>
             <div class="mixin-row">
               <label class="switch">
-                <input type="checkbox" id="mixin-toggle" aria-label="Cloud entropy mix-in">
+                <input type="checkbox" id="mixin-toggle" aria-label="Cloud entropy">
                 <span class="slider"></span>
               </label>
-              <span id="mixin-label">Cloud EMS disabled</span>
+              <span id="mixin-label">Cloud entropy off</span>
             </div>
             <dl id="mixin-record" class="record-list"></dl>
+          </article>
+          <article class="panel detail-panel">
+            <div class="panel-heading"><div><p class="eyebrow">How it works</p><h3>In three steps</h3></div></div>
+            <ol class="steps">
+              <li><strong>Collect.</strong> The processor's built-in noise source produces random bits. Nothing is read from the internet or the operating system.</li>
+              <li><strong>Check.</strong> Each block passes repetition and proportion tests. A failure stops key generation until the source recovers.</li>
+              <li><strong>Generate.</strong> The FIPS 140-3 validated generator turns checked bits into keys and signatures. Raw random bits are never shown or exported.</li>
+            </ol>
+            <details class="details">
+              <summary>Technical details</summary>
+              <dl id="entropy-specs" class="record-list"></dl>
+            </details>
           </article>
         </div>
       </section>

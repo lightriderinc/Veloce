@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(veloce_agent VERSION 1.2.0 LANGUAGES CXX)
+project(veloce_agent VERSION 1.3.0 LANGUAGES CXX)
 
 set(VELOCE_FIPS_INCLUDE "" CACHE PATH "Headers matching the native FIPS library")
 set(VELOCE_PQC_INCLUDE "" CACHE PATH "wolfSSL public-tree headers matching the PQC provider")
@@ -15,9 +15,10 @@ endif()
 
 add_library(veloce_agent_main OBJECT src/main.cpp)
 add_library(veloce_fips_core OBJECT src/fips_core.cpp)
+add_library(veloce_ems_client OBJECT src/ems_client.cpp)
 add_library(veloce_pqc_core OBJECT src/pqc_core.cpp)
 
-foreach(target veloce_agent_main veloce_fips_core veloce_pqc_core)
+foreach(target veloce_agent_main veloce_fips_core veloce_ems_client veloce_pqc_core)
     target_compile_features(${target} PRIVATE cxx_std_17)
     if(MSVC)
         target_compile_options(${target} PRIVATE /W4 /O2)
@@ -30,6 +31,7 @@ foreach(target veloce_agent_main veloce_fips_core veloce_pqc_core)
 endforeach()
 
 target_include_directories(veloce_fips_core PRIVATE "${VELOCE_FIPS_INCLUDE}")
+target_include_directories(veloce_ems_client PRIVATE "${VELOCE_FIPS_INCLUDE}")
 target_include_directories(veloce_pqc_core PRIVATE
     "${VELOCE_PQC_CONFIG}" "${VELOCE_PQC_INCLUDE}")
 target_compile_definitions(veloce_pqc_core PRIVATE WOLFSSL_USER_SETTINGS)
@@ -37,11 +39,12 @@ target_compile_definitions(veloce_pqc_core PRIVATE WOLFSSL_USER_SETTINGS)
 add_executable(veloce-agent
     $<TARGET_OBJECTS:veloce_agent_main>
     $<TARGET_OBJECTS:veloce_fips_core>
+    $<TARGET_OBJECTS:veloce_ems_client>
     $<TARGET_OBJECTS:veloce_pqc_core>)
 find_package(Threads REQUIRED)
 target_link_libraries(veloce-agent PRIVATE Threads::Threads)
 if(WIN32)
-    target_link_libraries(veloce-agent PRIVATE advapi32)
+    target_link_libraries(veloce-agent PRIVATE advapi32 ws2_32 bcrypt)
 elseif(CMAKE_DL_LIBS)
     target_link_libraries(veloce-agent PRIVATE ${CMAKE_DL_LIBS})
 endif()

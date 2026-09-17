@@ -3,6 +3,7 @@
 // Python SDK and CLI are thin clients on the authenticated local IPC
 // channel (ipc/protocol.md).
 #include "fips_core.hpp"
+#include "ems_client.hpp"
 #include "json.hpp"
 #include "keystore.hpp"
 #include "pqc_core.hpp"
@@ -38,13 +39,14 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <chrono>
 #include <vector>
 
 using vjson::Value;
 
 namespace {
 
-constexpr const char* kAgentVersion = "1.2.0";
+constexpr const char* kAgentVersion = "1.3.0";
 constexpr int kProtocolVersion = 1;
 constexpr uint32_t kMaxFrame = 1u << 20;
 
@@ -56,10 +58,47 @@ const char* kBanner =
     "  \\___/ |____| |____|\\___/  \\____||____|\n";
 
 struct EmsState {
+    // Configuration (agent.json "ems"); mode and mix-in are also runtime
+    // switchable over the authenticated IPC (set_ems_mode, set_entropy_mixin).
     std::string mode = "disabled"; // "disabled" | "enabled"
-    std::string endpoint;
-    bool entropyMixin = false;
+    std::atomic<bool> enabled{false};
+    std::string endpoint;           // https://ems.lightriderinc.com
+    std::string apiKey;             // optional Bearer key (Free tier keyless)
+    std::string policy = "fastest_available";
+    std::string pubkeyHex;          // pinned receipt verification key
+    std::string caFile;             // optional PEM bundle (default: ISRG Root X1)
+    std::string applicationId = "veloce-agent";
+    int intervalS = 60;
+    int bytes = 64;
+    int maxAgeS = 300;
+    int minQuality = 0;
+    std::atomic<bool> entropyMixin{false};
+    std::atomic<bool> fetchNow{false};
+    // Runtime status (strings guarded by statusMutex).
+    std::mutex statusMutex;
     std::string lastMixin = "never";
+    std::string lastError;
+    std::string lastPool;
+    std::string lastRequestId;
+    std::string lastVerification;
+    std::atomic<int64_t> lastMixinUnix{0};
+    std::atomic<int64_t> lastAttemptUnix{0};
+    std::atomic<int64_t> packetsMixed{0};
+    std::atomic<int64_t> packetsRejected{0};
+    std::atomic<int> lastQuality{0};
+
+    std::string verificationAlg() const {
+        if (pubkeyHex.size() == 64) return "Ed25519";
+        if (pubkeyHex.size() == 1952 * 2) return "ML-DSA-65";
+        return pubkeyHex.empty() ? "none (no pinned key)" : "unknown key size";
+    }
+    std::string endpointHost() const {
+        std::string rest = endpoint;
+        const std::string scheme = "https://";
+        if (rest.compare(0, scheme.size(), scheme) == 0) rest = rest.substr(scheme.size());
+        size_t slash = rest.find('/');
+        return slash == std::string::npos ? rest : rest.substr(0, slash);
+    }
 };
 
 struct StartupStatus {
@@ -299,7 +338,14 @@ Value healthValue() {
     Value ems = Value::object();
     ems.set("mode", g_agent.ems.mode);
     ems.set("entropy_mixin", g_agent.ems.entropyMixin ? "on" : "off");
-    ems.set("last_mixin", g_agent.ems.lastMixin);
+    {
+        std::lock_guard<std::mutex> lk(g_agent.ems.statusMutex);
+        ems.set("last_mixin", g_agent.ems.lastMixin);
+        ems.set("last_error", g_agent.ems.lastError);
+    }
+    ems.set("packets_mixed", static_cast<int64_t>(g_agent.ems.packetsMixed.load()));
+    ems.set("packets_rejected", static_cast<int64_t>(g_agent.ems.packetsRejected.load()));
+    ems.set("last_mixin_unix", g_agent.ems.lastMixinUnix.load());
     v.set("ems", std::move(ems));
     v.set("uptime_s", static_cast<int64_t>(time(nullptr) - g_agent.startedAt));
     v.set("keys_held", static_cast<int64_t>(g_agent.keys.size()));
@@ -388,8 +434,10 @@ Value validationStatusValue() {
     mix.set("item", "cloud_entropy_mixin");
     mix.set("state", g_agent.ems.entropyMixin ? "on" : "off");
     mix.set("credited", false);
-    mix.set("note", "SP 800-90A additional input; never the seed; the local "
-                    "verified provider remains the sole seed source");
+    mix.set("note", "verified EMS packet mixed as the SP 800-90A "
+                    "instantiation nonce at DRBG re-instantiation; zero "
+                    "credited entropy; the local seed source remains the "
+                    "sole credit");
     items.push(std::move(mix));
 
     Value oe = Value::object();
@@ -672,11 +720,33 @@ bool dispatch(const std::string& op, const Value& params, Value& result,
         arr.push(std::move(w));
         Value c = Value::object();
         c.set("name", "cloud-entropy-mixin");
-        c.set("type", "EMS-delivered DRBG additional input");
+        c.set("type", "EMS-delivered entropy packet, verified and mixed as "
+                      "the SP 800-90A instantiation nonce");
         c.set("esv_certified", false);
         c.set("credited", false);
+        c.set("ems_mode", g_agent.ems.mode);
         c.set("state", g_agent.ems.entropyMixin ? "on" : "off");
-        c.set("last_mixin", g_agent.ems.lastMixin);
+        c.set("endpoint", g_agent.ems.endpointHost());
+        c.set("policy", g_agent.ems.policy);
+        c.set("verification_alg", g_agent.ems.verificationAlg());
+        c.set("mixing_method", "DRBG re-instantiation with fresh seed-source "
+                               "entropy plus the packet as nonce (wc_InitRngNonce); "
+                               "zero credited entropy");
+        c.set("interval_s", static_cast<int64_t>(g_agent.ems.intervalS));
+        c.set("packet_bytes", static_cast<int64_t>(g_agent.ems.bytes));
+        c.set("packets_mixed", static_cast<int64_t>(g_agent.ems.packetsMixed.load()));
+        c.set("packets_rejected", static_cast<int64_t>(g_agent.ems.packetsRejected.load()));
+        c.set("last_mixin_unix", g_agent.ems.lastMixinUnix.load());
+        c.set("last_attempt_unix", g_agent.ems.lastAttemptUnix.load());
+        c.set("last_quality_score", static_cast<int64_t>(g_agent.ems.lastQuality.load()));
+        {
+            std::lock_guard<std::mutex> lk(g_agent.ems.statusMutex);
+            c.set("last_mixin", g_agent.ems.lastMixin);
+            c.set("last_error", g_agent.ems.lastError);
+            c.set("last_pool", g_agent.ems.lastPool);
+            c.set("last_request_id", g_agent.ems.lastRequestId);
+            c.set("last_verification", g_agent.ems.lastVerification);
+        }
         arr.push(std::move(c));
         result.set("providers", std::move(arr));
         return true;
@@ -946,13 +1016,45 @@ bool dispatch(const std::string& op, const Value& params, Value& result,
         }
         g_agent.ems.entropyMixin = en->asBool();
         if (g_agent.ems.entropyMixin) {
+            std::lock_guard<std::mutex> lk(g_agent.ems.statusMutex);
             g_agent.ems.lastMixin =
-                "pending: no packet received; local operation unaffected "
-                "(fail-safe)";
+                "pending: fetching the first packet; local operation "
+                "unaffected (fail-safe)";
+            g_agent.ems.fetchNow = true;
         }
         result = Value::object();
         result.set("entropy_mixin", g_agent.ems.entropyMixin ? "on" : "off");
-        result.set("last_mixin", g_agent.ems.lastMixin);
+        {
+            std::lock_guard<std::mutex> lk(g_agent.ems.statusMutex);
+            result.set("last_mixin", g_agent.ems.lastMixin);
+        }
+        return true;
+    }
+    if (op == "set_ems_mode") {
+        const Value* en = params.find("enabled");
+        if (!en || !en->isBool()) {
+            error = errorValue("bad_request", "enabled (bool) required");
+            return false;
+        }
+        if (en->asBool()) {
+            if (g_agent.ems.endpoint.empty() || g_agent.ems.pubkeyHex.empty()) {
+                error = errorValue("ems_unconfigured",
+                                   "ems.endpoint and ems.pubkey_hex must be "
+                                   "set in the agent configuration before "
+                                   "EMS can be enabled");
+                return false;
+            }
+            g_agent.ems.mode = "enabled";
+            g_agent.ems.enabled = true;
+        } else {
+            g_agent.ems.mode = "disabled";
+            g_agent.ems.enabled = false;
+            g_agent.ems.entropyMixin = false;
+        }
+        result = Value::object();
+        result.set("ems_mode", g_agent.ems.mode);
+        result.set("entropy_mixin", g_agent.ems.entropyMixin ? "on" : "off");
+        result.set("endpoint", g_agent.ems.endpointHost());
         return true;
     }
     if (op == "release_key") {
@@ -1059,6 +1161,134 @@ bool peerAuthorized(ConnectionHandle fd) {
 #endif
 }
 
+// ---------------------------------------------------------- cloud mix-in
+// Background worker (spec 6): while EMS is enabled and the mix-in is on,
+// fetch a signed packet at the configured interval, verify the receipt
+// (pinned key, freshness, health flags), and re-instantiate the DRBG with
+// fresh seed-source entropy plus the packet as nonce. Any failure records
+// the reason and leaves local operation untouched (fail-safe). While EMS is
+// disabled the worker holds no network socket.
+void setEmsStatus(const std::string& lastMixin, const std::string& lastError) {
+    std::lock_guard<std::mutex> lk(g_agent.ems.statusMutex);
+    if (!lastMixin.empty()) g_agent.ems.lastMixin = lastMixin;
+    g_agent.ems.lastError = lastError;
+}
+
+void rejectPacket(const std::string& reason) {
+    g_agent.ems.packetsRejected.fetch_add(1);
+    setEmsStatus("", reason);
+    g_agent.recordError("EMS packet rejected: " + reason);
+}
+
+void performEmsMixin(veloce::EmsClient& client) {
+    g_agent.ems.lastAttemptUnix = static_cast<int64_t>(time(nullptr));
+    std::string nonce = std::to_string(time(nullptr)) + "-" +
+                        std::to_string(g_agent.ems.packetsMixed.load() +
+                                       g_agent.ems.packetsRejected.load());
+    veloce::EmsFetch fetch = client.requestEntropy(
+        static_cast<uint32_t>(g_agent.ems.bytes), g_agent.ems.policy,
+        g_agent.ems.apiKey, g_agent.ems.applicationId, nonce, 15);
+    if (!fetch.ok) {
+        rejectPacket(fetch.error);
+        return;
+    }
+    const veloce::EmsReceipt& r = fetch.receipt;
+    if (r.outputBytes != fetch.bytes.size() ||
+        fetch.bytes.size() != static_cast<size_t>(g_agent.ems.bytes)) {
+        rejectPacket("packet length does not match the receipt");
+        return;
+    }
+    if (!r.rctPass || !r.aptPass) {
+        rejectPacket("receipt reports failed source health tests");
+        return;
+    }
+    if (r.rawEntropyStored) {
+        rejectPacket("receipt claims raw entropy was stored");
+        return;
+    }
+    if (r.qualityScore < g_agent.ems.minQuality) {
+        rejectPacket("quality score below the configured minimum");
+        return;
+    }
+    int64_t nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        std::chrono::system_clock::now().time_since_epoch()).count();
+    int64_t ageNs = nowNs - static_cast<int64_t>(r.timestampNs);
+    if (ageNs < 0) ageNs = -ageNs;
+    if (r.timestampNs == 0 || ageNs > static_cast<int64_t>(g_agent.ems.maxAgeS) * 1000000000LL) {
+        rejectPacket("receipt timestamp outside the freshness window");
+        return;
+    }
+    std::vector<uint8_t> pubkey;
+    if (!veloce::EmsClient::hexDecode(g_agent.ems.pubkeyHex, pubkey)) {
+        rejectPacket("pinned EMS public key is not valid hex");
+        return;
+    }
+    std::vector<uint8_t> canonical(r.canonical.begin(), r.canonical.end());
+    bool valid = false;
+    std::string verr;
+    if (r.signatureAlg == "Ed25519") {
+        if (!g_agent.pqc.ed25519Verify(pubkey, canonical, r.signature, valid, verr)) {
+            rejectPacket("Ed25519 verification error: " + verr);
+            return;
+        }
+    } else if (r.signatureAlg == "ML-DSA-65") {
+        if (!g_agent.pqc.mldsaVerify(pubkey, canonical, r.signature, valid, verr)) {
+            rejectPacket("ML-DSA-65 verification error: " + verr);
+            return;
+        }
+    } else {
+        rejectPacket("unsupported receipt signature algorithm " + r.signatureAlg);
+        return;
+    }
+    if (!valid) {
+        rejectPacket("receipt signature does not verify against the pinned key");
+        return;
+    }
+    std::string mixErr;
+    if (!g_agent.fips.reinstantiateWithNonce(fetch.bytes, mixErr)) {
+        std::memset(fetch.bytes.data(), 0, fetch.bytes.size());
+        rejectPacket("DRBG mix-in failed: " + mixErr);
+        return;
+    }
+    std::memset(fetch.bytes.data(), 0, fetch.bytes.size());
+    g_agent.ems.packetsMixed.fetch_add(1);
+    g_agent.ems.lastMixinUnix = static_cast<int64_t>(time(nullptr));
+    g_agent.ems.lastQuality = r.qualityScore;
+    {
+        std::lock_guard<std::mutex> lk(g_agent.ems.statusMutex);
+        g_agent.ems.lastPool = r.poolId;
+        g_agent.ems.lastRequestId = r.requestId;
+        g_agent.ems.lastVerification = r.signatureAlg + " receipt signature verified "
+                                       "against the pinned key; freshness and "
+                                       "health flags checked";
+        g_agent.ems.lastMixin = "verified packet " + r.requestId + " mixed as DRBG nonce";
+        g_agent.ems.lastError.clear();
+    }
+}
+
+void emsMixinLoop() {
+    veloce::EmsClient client(g_agent.fips);
+    bool configured = false;
+    int64_t nextDue = 0;
+    while (!g_agent.stopping) {
+        bool active = g_agent.ems.enabled && g_agent.ems.entropyMixin &&
+                      g_agent.approvedMode();
+        int64_t now = static_cast<int64_t>(time(nullptr));
+        if (active && (g_agent.ems.fetchNow.exchange(false) || now >= nextDue)) {
+            if (!configured) {
+                std::string cerr;
+                configured = client.configure(g_agent.ems.endpoint,
+                                              g_agent.ems.caFile, cerr);
+                if (!configured) rejectPacket("EMS client configuration failed: " + cerr);
+            }
+            if (configured) performEmsMixin(client);
+            nextDue = now + g_agent.ems.intervalS;
+        }
+        for (int i = 0; i < 4 && !g_agent.stopping; i++)
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    }
+}
+
 void printBanner(bool quiet) {
     std::string status = std::string("FIPS 140-3 ") +
         g_agent.fipsRecord.getString("fips_certificate", "#4718") +
@@ -1120,9 +1350,23 @@ int main(int argc, char** argv) {
     std::string pqcRecordPath = cfg.getString("pqc_record");
     if (const Value* ems = cfg.find("ems")) {
         g_agent.ems.mode = ems->getString("mode", "disabled");
+        g_agent.ems.enabled = (g_agent.ems.mode == "enabled");
         g_agent.ems.endpoint = ems->getString("endpoint", "");
+        g_agent.ems.apiKey = ems->getString("api_key", "");
+        g_agent.ems.policy = ems->getString("policy", "fastest_available");
+        g_agent.ems.pubkeyHex = ems->getString("pubkey_hex", "");
+        g_agent.ems.caFile = ems->getString("ca_file", "");
+        g_agent.ems.applicationId =
+            ems->getString("application_id", "veloce-agent");
+        g_agent.ems.intervalS = static_cast<int>(ems->getInt("interval_s", 60));
+        g_agent.ems.bytes = static_cast<int>(ems->getInt("bytes", 64));
+        g_agent.ems.maxAgeS = static_cast<int>(ems->getInt("max_age_s", 300));
+        g_agent.ems.minQuality = static_cast<int>(ems->getInt("min_quality", 0));
+        if (g_agent.ems.intervalS < 1) g_agent.ems.intervalS = 1;
+        if (g_agent.ems.bytes < 16 || g_agent.ems.bytes > 4096) g_agent.ems.bytes = 64;
         g_agent.ems.entropyMixin =
             ems->getString("entropy_mixin", "off") == "on";
+        if (g_agent.ems.entropyMixin) g_agent.ems.fetchNow = true;
     }
     // Seed source (spec 5.1): "rdseed" (default, hardware) or "os-drbg"
     // (explicit opt-in, unvalidated SP 800-90C chain). No fallback.
@@ -1188,6 +1432,10 @@ int main(int argc, char** argv) {
     }
 
     printBanner(quiet);
+
+    // Cloud mix-in worker (spec 6): idle while EMS is disabled, so it holds
+    // no network socket in the default configuration.
+    std::thread emsWorker(emsMixinLoop);
 
 #ifdef _WIN32
     int wideSize = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
@@ -1336,6 +1584,7 @@ int main(int argc, char** argv) {
 
     for (auto& t : workers)
         if (t.joinable()) t.join();
+    if (emsWorker.joinable()) emsWorker.join();
     g_agent.keys.releaseAll(); // zeroization on shutdown (spec 8)
 #ifdef _WIN32
     OutputDebugStringA("veloce-agent stopped\n");

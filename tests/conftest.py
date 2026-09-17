@@ -41,7 +41,10 @@ def agent(tmp_path_factory):
         "fips_record": os.path.join(FIPS_DIR, "build-record.json"),
         "pqc_lib": os.path.join(PQC_DIR, "libveloce-pqc.so"),
         "pqc_record": os.path.join(PQC_DIR, "build-record.json"),
-        "ems": {"mode": "disabled", "endpoint": "", "entropy_mixin": "off"},
+        "ems": {"mode": "disabled", "endpoint": "https://ems.lightriderinc.com",
+                "policy": "fastest_available",
+                "pubkey_hex": "cdec782a5dccf410739222245344883ca70d9a5788948f83a15cf94da3e355bf",
+                "interval_s": 60, "bytes": 64, "entropy_mixin": "off"},
         # Hardware seed source by default; VELOCE_ENTROPY_SOURCE=os-drbg only
         # on hosts without RDSEED (reported as an unvalidated chain).
         "entropy": {"source": os.environ.get("VELOCE_ENTROPY_SOURCE",

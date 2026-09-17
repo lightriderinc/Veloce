@@ -12,7 +12,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-VERSION="${VELOCE_VERSION:-1.2.0}"
+VERSION="${VELOCE_VERSION:-1.3.0}"
 ARCH="${VELOCE_ARCH:-$(uname -m)}"
 RUNTIME_DIR=""
 DISCOVERY_ONLY=0
