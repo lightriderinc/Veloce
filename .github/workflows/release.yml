@@ -47,7 +47,7 @@ jobs:
         run: |
           rustup default stable
           python -m pip install -r desktop\requirements-build.txt
-          dotnet tool install --global wix
+          dotnet tool install --global wix --version 5.0.2
       - name: Verify desktop and Windows artifact contracts
         shell: pwsh
         run: python -m pytest -q tests\test_desktop.py tests\test_windows_artifacts.py

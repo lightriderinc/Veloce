@@ -81,6 +81,10 @@ def test_wix_package_carries_branding_upgrade_and_ui():
 def test_release_builder_wires_branding_signing_and_checksums():
     text = (WINDOWS / "build-release.ps1").read_text(encoding="utf-8")
     assert '$Version = "1.2.0"' in text
+    assert "--version 5.0.2" in text and "$WixMajor -ne 5" in text
+    for wf in ("release.yml", "desktop-discovery-release.yml"):
+        assert "dotnet tool install --global wix --version 5.0.2" in \
+            (ROOT / ".github" / "workflows" / wf).read_text(encoding="utf-8")
     for required in ("-ext WixToolset.UI.wixext", "-ext WixToolset.Util.wixext",
                      "WixToolset.Util.wixext", "BrandingDir=$Branding",
                      "LicenseRtf=$LicenseRtf", "ProductVersion=$Version",

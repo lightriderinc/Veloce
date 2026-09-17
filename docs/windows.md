@@ -24,7 +24,7 @@ self-test evidence.
 | Artifact | Content |
 |---|---|
 | `veloce-<ver>-windows-x86_64.zip` | Portable payload: `Veloce.exe` plus `_internal\` (UI, qSearch, CLI, optional runtime) |
-| `veloce-<ver>-windows-x86_64.msi` | WiX v5 installer: `Program Files\Veloce`, Start Menu shortcut, Apps and features entry with the Veloce icon, license and install-directory dialogs with Lightrider artwork |
+| `veloce-<ver>-windows-x86_64.msi` | WiX 5.0.2 installer: `Program Files\Veloce`, Start Menu shortcut, Apps and features entry with the Veloce icon, license and install-directory dialogs with Lightrider artwork |
 | `SHA256SUMS-windows-x86_64.txt` | `sha256sum -c` compatible checksums of the artifacts above |
 
 Build commands, signing, and the full-runtime input contract:
@@ -34,8 +34,9 @@ workflow produces the discovery-only ZIP and MSI on `windows-latest`.
 ## Build the native runtime (on Windows)
 
 Prerequisites: Visual Studio 2022 Build Tools (C++ x64), CMake 3.20 or
-later, rustup with the stable MSVC toolchain, Python 3, WiX v5
-(`dotnet tool install --global wix`), and the licensed wolfSSL FIPS bundle
+later, rustup with the stable MSVC toolchain, Python 3, WiX 5.0.2
+(`dotnet tool install --global wix --version 5.0.2`; later majors require
+the Open Source Maintenance Fee EULA), and the licensed wolfSSL FIPS bundle
 together with the vendor-supplied `user_settings.h` for module v5.2.1
 (`HAVE_FIPS_VERSION_MAJOR 5`, `HAVE_FIPS_VERSION_MINOR 2`,
 `HAVE_FIPS_VERSION_PATCH 1`).

@@ -131,8 +131,8 @@ py -3 -m pip install -r desktop\requirements-build.txt
 ```
 
 The ZIP is written to `build\dist\veloce-1.2.0-windows-x86_64.zip`.
-For MSI output, install WiX Toolset v5 (`dotnet tool install --global wix`)
-and omit `-SkipMsi`; the script also writes
+For MSI output, install WiX Toolset 5.0.2 (`dotnet tool install --global wix
+--version 5.0.2`) and omit `-SkipMsi`; the script also writes
 `build\dist\SHA256SUMS-windows-x86_64.txt`. Add `-CertificateThumbprint`
 to Authenticode-sign the executables and MSI. A full-runtime Windows package
 also requires the approved native Windows runtime inputs; see

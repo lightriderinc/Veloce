@@ -150,15 +150,21 @@ $Artifacts += $Zip
 if (-not $SkipMsi) {
     $Wix = Get-Command wix -ErrorAction SilentlyContinue
     if (-not $Wix) {
-        throw "WiX v5 is required for MSI output (dotnet tool install --global wix); or pass -SkipMsi"
+        throw "WiX 5.0.2 is required for MSI output (dotnet tool install --global wix --version 5.0.2); or pass -SkipMsi"
     }
-    # The UI and Util extensions must match the installed WiX version.
+    # WiX v7 and later require accepting the Open Source Maintenance Fee EULA
+    # before use; that is a licensing decision outside this script. veloce.wxs
+    # targets WiX v5, so pin the tool and its extensions to 5.0.2.
     $WixVersion = ((& $Wix.Source --version) | Select-Object -First 1).Split("+")[0].Trim()
+    $WixMajor = [int]($WixVersion.Split(".")[0])
+    if ($WixMajor -ne 5) {
+        throw "WiX $WixVersion found; this package is built with WiX 5.0.2. Run: dotnet tool uninstall --global wix; dotnet tool install --global wix --version 5.0.2"
+    }
     foreach ($extension in @("WixToolset.UI.wixext", "WixToolset.Util.wixext")) {
-        & $Wix.Source extension add -g "$extension/$WixVersion" 2>$null
+        $addOutput = & $Wix.Source extension add -g "$extension/$WixVersion" 2>&1
         if ($LASTEXITCODE -ne 0) {
-            & $Wix.Source extension add -g $extension
-            if ($LASTEXITCODE -ne 0) { throw "cannot add $extension" }
+            Write-Host $addOutput
+            throw "cannot add $extension/$WixVersion"
         }
     }
 

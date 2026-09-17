@@ -149,9 +149,13 @@ Requirements on Windows x86-64:
 
 - Python 3 and PyInstaller;
 - Rust with the stable MSVC toolchain;
-- WiX Toolset v5 (`dotnet tool install --global wix`) for MSI output; the
-  `Files` harvesting element in `installer/windows/veloce.wxs` requires v5,
-  and the build script adds the matching `WixToolset.UI.wixext` extension;
+- WiX Toolset 5.0.2 (`dotnet tool install --global wix --version 5.0.2`)
+  for MSI output. The `Files` harvesting element in
+  `installer/windows/veloce.wxs` requires v5; WiX v7 and later require
+  accepting the Open Source Maintenance Fee EULA before use, so the tool is
+  pinned and the build script refuses other major versions. The script adds
+  the matching `WixToolset.UI.wixext` and `WixToolset.Util.wixext`
+  extensions;
 - the Windows SDK `signtool.exe` when signing;
 - the approved native runtime directory for a full-runtime package.
 
