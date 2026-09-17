@@ -96,8 +96,9 @@ tar -tzf build/dist/veloce-1.0.0-source.tar.gz \
   && echo LEAK || echo CLEAN
 ```
 
-Windows artifacts (MSI, once the S0 vendor items close) are added to the
-same deposit as additional files; one deposit carries all platforms.
+The `Release` GitHub Actions workflow builds the Windows MSI/ZIP and the
+macOS DMG and attaches them to the draft GitHub Release; add them to the
+same deposit as additional files, so one deposit carries all platforms.
 
 ## Step 1: connect GitHub to Zenodo (one-time owner action)
 

@@ -64,6 +64,15 @@ removed. No ESV certificate is claimed for either source; the question of
 which source wolfSSL will accept for the legacy IG 9.3.A module is in
 `plan/wolfssl-next-steps.pdf`.
 
+### Distribution authorization (2026-09-17)
+
+wolfSSL authorization to distribute the wolfCrypt FIPS module as object code
+inside Lightrider-branded Veloce releases is on record. The 1.2.0 GitHub
+Release therefore carries the Linux x86-64 full-runtime archive (agent, CLI,
+qSearch, FIPS module and PQC provider with recorded hashes) beside the
+discovery-only Windows and macOS desktop packages. The release script
+continues to fail the build if wolfSSL source is detected in the archive.
+
 ## 1.1.0: the macOS track is implemented
 
 macOS moved from "desktop discovery-only" to a full platform track

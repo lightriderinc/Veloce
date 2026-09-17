@@ -20,6 +20,13 @@ with `veloce-fire-up: running as PID ...`.
 The launcher can be run again safely. It reuses the running agent recorded
 in `~/.veloce/agent.pid` and repeats the checks.
 
+The agent seeds its FIPS DRBG from the processor's RDSEED instruction and
+fails closed when the CPU or virtual machine does not expose it
+(`veloce status` then reports the entropy source as unavailable). On such
+hosts, `VELOCE_ENTROPY_SOURCE=os-drbg bin/veloce-fire-up` selects operating
+system DRBG output instead; the agent reports that source as an unvalidated
+SP 800-90C chain with no security-strength claim.
+
 Useful commands:
 
 ```bash

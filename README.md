@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/branding/veloce-256.png" alt="Veloce" width="96"></p>
+
 # Veloce, the Lightrider Inc PQC SDK
 
 Veloce V1 delivers two products in one SDK:
@@ -20,10 +22,12 @@ The authoritative implementation spec is
 
 The current Veloce release is publicly downloadable and free to use under
 the included Lightrider Inc license; no client subscription is required for
-this archived version. Windows and macOS users download a ready-to-run
-package from the GitHub Releases page
-(https://github.com/lightriderinc/Veloce/releases); no build step is
-required. Windows instructions: [`docs/windows-quickstart.md`](docs/windows-quickstart.md). Future managed services, enterprise features,
+this archived version. Download ready-to-run packages from the GitHub
+Releases page (https://github.com/lightriderinc/Veloce/releases); no build
+step is required: the Linux x86-64 archive is the full runtime with the
+wolfCrypt FIPS module as object code (`bin/veloce-fire-up`), and the Windows
+MSI/ZIP and macOS DMG are discovery-only desktop builds. Windows
+instructions: [`docs/windows-quickstart.md`](docs/windows-quickstart.md). Future managed services, enterprise features,
 support, updates, or client releases may require a paid subscription.
 "Publicly downloadable" does not mean OSI open source and does not override
 the terms in [`LICENSE`](LICENSE).
@@ -169,8 +173,9 @@ configuration/startup glue, not the Veloce or wolfSSL implementation.
 
 Veloce ships under the Lightrider Inc commercial license (LICENSE),
 wrapping the wolfSSL commercial agreement: wolfCrypt is distributed as
-object code only, never as source. Attribution: built with wolfCrypt
-(FIPS 140-3 certificate #4718). See THIRD_PARTY_NOTICES.md.
+object code only, never as source, with wolfSSL's authorization to ship the
+FIPS module inside Lightrider-branded releases. Attribution: built with
+wolfCrypt (FIPS 140-3 certificate #4718). See THIRD_PARTY_NOTICES.md.
 
 The `wolfssl-5.9.2-commercial-fips-linuxv5.2.1/` bundle and `vendor/` are
 confidential licensed material: never commit, publish, or redistribute them

@@ -135,8 +135,19 @@ jobs:
         run: |
           tag="v${VERSION}"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$tag" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
-            gh release edit "$tag" --notes-file release-body.md --repo "$GITHUB_REPOSITORY"
+            if [ "$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = "true" ]; then
+              gh release upload "$tag" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
+              gh release edit "$tag" --notes-file release-body.md --repo "$GITHUB_REPOSITORY"
+            else
+              # Published releases are immutable deliverables: add only assets
+              # that are missing, never replace files or notes.
+              existing="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
+              for asset in release-assets/*; do
+                if ! grep -qx "$(basename "$asset")" <<< "$existing"; then
+                  gh release upload "$tag" "$asset" --repo "$GITHUB_REPOSITORY"
+                fi
+              done
+            fi
           else
             gh release create "$tag" release-assets/* \
               --draft \
