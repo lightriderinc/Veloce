@@ -44,7 +44,7 @@ using vjson::Value;
 
 namespace {
 
-constexpr const char* kAgentVersion = "1.1.0";
+constexpr const char* kAgentVersion = "1.2.0";
 constexpr int kProtocolVersion = 1;
 constexpr uint32_t kMaxFrame = 1u << 20;
 

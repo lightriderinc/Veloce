@@ -7,9 +7,10 @@ Veloce V1 delivers two products in one SDK:
   inventory fields, executive summary.
 - **Crypto core**: a local agent embedding the wolfCrypt FIPS 140-3 module
   (CMVP certificate #4718, module v5.2.1) seeded exclusively by the
-  wolfEntropy ESV source (fail-closed), with ML-KEM-768 and ML-DSA-65
-  provided beside the FIPS boundary, consumed from a pure-Python SDK and a
-  CLI over authenticated local IPC. Optional EMS cloud connectivity is off
+  Lightrider local entropy provider (OS kernel entropy with RCT/APT
+  verification on every seed block, fail-closed), with ML-KEM-768 and
+  ML-DSA-65 provided beside the FIPS boundary, consumed from a pure-Python
+  SDK and a CLI over authenticated local IPC. Optional EMS cloud connectivity is off
   by default with a zero-network-traffic guarantee.
 
 The authoritative implementation spec is
@@ -83,8 +84,8 @@ Merge the agent's runtime validation records into a scan with
 | `desktop/` | local qSearch UI and live FIPS validation dashboard |
 | `installer/` | Linux systemd, Windows MSI, and macOS DMG inputs |
 | `cbom/` | CBOM field mapping to the Light Rider workbook (Appendix B) |
-| `docs/` | quickstart, status, Zenodo release guide |
-| `assets/branding/` | banner and logo assets (spec 7.3) |
+| `docs/` | quickstart, status, platform guides (Windows, macOS), desktop releases, Zenodo release guide |
+| `assets/branding/` | brand mark (`veloce.svg`), rendered icons and installer artwork, ASCII banner (spec 7.3) |
 
 The manual two-host ML-DSA/ML-KEM interoperability procedure is in
 [`docs/two-server-manual-test.md`](docs/two-server-manual-test.md).
@@ -92,10 +93,13 @@ The manual two-host ML-DSA/ML-KEM interoperability procedure is in
 ## Desktop UI (Windows and macOS)
 
 Veloce Desktop provides a click-to-scan qSearch interface and a live FIPS/PQC
-validation dashboard. Native builders produce a Windows executable/ZIP/MSI and
-a macOS app/DMG. See
+validation dashboard in a clean, system-appearance-aware interface built on
+the Lightrider gradient palette. Native builders produce a Windows
+executable/ZIP/MSI and a macOS app/DMG. See
 [`docs/desktop-releases.md`](docs/desktop-releases.md) for full-runtime and
-discovery-only build instructions and the platform certification boundaries.
+discovery-only build instructions and the platform certification boundaries,
+[`docs/windows.md`](docs/windows.md) for the Windows runtime build and
+launcher, and [`docs/macos.md`](docs/macos.md) for macOS.
 
 ## Releasing
 
@@ -118,16 +122,20 @@ portable ZIP:
 ```powershell
 py -3 -m pip install -r desktop\requirements-build.txt
 .\installer\windows\build-release.ps1 `
-    -Version 1.0.0 `
+    -Version 1.2.0 `
     -DiscoveryOnly `
     -SkipMsi
 ```
 
-The ZIP is written to `build\dist\veloce-1.0.0-windows-x86_64.zip`.
-For MSI output, install WiX Toolset v4 and omit `-SkipMsi`. A full-runtime
-Windows package also requires the approved native Windows runtime inputs; see
-[`docs/desktop-releases.md`](docs/desktop-releases.md) for the required layout
-and certification boundary.
+The ZIP is written to `build\dist\veloce-1.2.0-windows-x86_64.zip`.
+For MSI output, install WiX Toolset v5 (`dotnet tool install --global wix`)
+and omit `-SkipMsi`; the script also writes
+`build\dist\SHA256SUMS-windows-x86_64.txt`. Add `-CertificateThumbprint`
+to Authenticode-sign the executables and MSI. A full-runtime Windows package
+also requires the approved native Windows runtime inputs; see
+[`docs/desktop-releases.md`](docs/desktop-releases.md) for the required
+layout and certification boundary and [`docs/windows.md`](docs/windows.md)
+for the runtime build.
 
 Publication steps (DOI-versioned, all platforms): docs/zenodo-release-guide.md.
 Zenodo reads [`.zenodo.json`](.zenodo.json) when a GitHub Release is archived.

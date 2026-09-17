@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(veloce_agent VERSION 1.0.0 LANGUAGES CXX)
+project(veloce_agent VERSION 1.2.0 LANGUAGES CXX)
 
 set(VELOCE_FIPS_INCLUDE "" CACHE PATH "Headers matching the native FIPS library")
 set(VELOCE_PQC_INCLUDE "" CACHE PATH "wolfSSL public-tree headers matching the PQC provider")

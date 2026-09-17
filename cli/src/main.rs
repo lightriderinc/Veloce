@@ -9,7 +9,7 @@ use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
 use std::process::Command;
 
-const VERSION: &str = "1.1.0";
+const VERSION: &str = "1.2.0";
 const BANNER: &str = r#"
   _   _  ____  __     ___    ____  ____
  | | | || ___| | |   / _ \  / ___|| ___|

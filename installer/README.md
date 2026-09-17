@@ -28,8 +28,8 @@ that do not use deb/rpm. It includes both cryptographic libraries as object
 code and does not require the licensed wolfSSL source bundle on the client:
 
 ```bash
-tar -xzf veloce-1.0.0-linux-x86_64.tar.gz
-cd veloce-1.0.0-linux-x86_64
+tar -xzf veloce-1.2.0-linux-x86_64.tar.gz
+cd veloce-1.2.0-linux-x86_64
 bin/veloce-fire-up
 ```
 
@@ -48,14 +48,24 @@ The desktop full-runtime bundle currently starts a fail-closed agent for the
 signed-in user. Registration under `LocalService` remains a separate managed
 deployment step and is not implied by the desktop MSI.
 
-`windows/build-release.ps1` packages the Veloce Desktop executable, qSearch,
-CLI, and an approved native runtime into a portable ZIP and WiX v4 MSI. It also
-supports an explicit discovery-only build for UI/qSearch testing.
+| File | Purpose |
+|---|---|
+| `windows/build-release.ps1` | Packages the Veloce Desktop executable (with the Veloce icon), qSearch, CLI, and an approved native runtime into a portable ZIP and a WiX v5 MSI; optional Authenticode signing (`-CertificateThumbprint`); writes `SHA256SUMS-windows-x86_64.txt`. Supports an explicit discovery-only build. |
+| `windows/veloce.wxs` | WiX package: `Program Files\Veloce`, Start Menu shortcut, Apps and features icon, license and install-directory dialogs with Lightrider artwork from `assets/branding/`. |
+| `windows/veloce-fire-up.ps1` | Windows counterpart of the Linux/macOS launchers: writes `%LOCALAPPDATA%\Lightrider\Veloce\agent.json` from the build records, starts the agent on the named pipe, prints status and self-test JSON; `-Stop` stops it. |
+
+Signing never touches `lib\`: the FIPS module and PQC provider are hash
+recorded, and rewriting them would break the recorded SHA-256 and the
+module's in-core integrity check.
 
 The Windows module build uses the wolfSSL-provided `IDE/WIN10` FIPS
-solution (`wolfssl-fips.sln`, x64). Open vendor items before shipping
-(spec 5.2): approved DLL build configuration (the IDE ships static-library
-settings) and the `user_settings.h` variant matching module v5.2.1.
+solution (`wolfssl-fips.sln`, `DLL Release|x64`) with the vendor-supplied
+v5.2.1 `user_settings.h`; wolfSSL confirmed on 2026-08-27 that Windows FIPS
+supports DLL builds only (the README's static-library statement is a legacy
+error, correction in wolfSSL PR #11142). The Windows 11 Pro OE is tested and
+awaiting publication on certificate #4718; until published, Windows carries
+`pending_publication` and no validated-deployment claim. Runtime build steps:
+`docs/windows.md`.
 
 The agent and CLI implement the Windows named-pipe transport with a protected
 local ACL behind the same framing and protocol (`ipc/protocol.md`). qSearch has

@@ -3,25 +3,40 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>Veloce Desktop</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <div class="shell">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark" aria-hidden="true">V</div>
-        <div><strong>VELOCE</strong><span>POST-QUANTUM SECURITY</span></div>
+        <svg class="brand-mark" viewBox="0 0 48 48" width="40" height="40" aria-hidden="true" focusable="false">
+          <defs>
+            <linearGradient id="lr-ring" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#fff802"/>
+              <stop offset="0.18" stop-color="#ffdc0c"/>
+              <stop offset="0.42" stop-color="#fd8c27"/>
+              <stop offset="0.68" stop-color="#f82848"/>
+              <stop offset="1" stop-color="#a72848"/>
+            </linearGradient>
+          </defs>
+          <circle cx="24" cy="24" r="22.5" fill="url(#lr-ring)"/>
+          <circle cx="24" cy="24" r="19" fill="#000000"/>
+          <path d="M15 15.5 L24 33.5 L33 15.5" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div><strong>Veloce</strong><span>Post-quantum security</span></div>
       </div>
       <nav aria-label="Primary navigation">
         <button class="nav-item active" data-page="dashboard">
-          <span class="nav-icon">◫</span>Security dashboard
+          <span class="nav-icon" aria-hidden="true">◫</span>Security dashboard
         </button>
         <button class="nav-item" data-page="qsearch">
-          <span class="nav-icon">⌕</span>qSearch
+          <span class="nav-icon" aria-hidden="true">⌕</span>qSearch
         </button>
         <button class="nav-item" data-page="entropy">
-          <span class="nav-icon">∿</span>Entropy
+          <span class="nav-icon" aria-hidden="true">∿</span>Entropy
         </button>
       </nav>
       <div class="sidebar-foot">
@@ -33,7 +48,7 @@
     <main>
       <header class="topbar">
         <div>
-          <p class="eyebrow">LIGHTRIDER INC</p>
+          <p class="eyebrow">Lightrider Inc</p>
           <h1 id="page-title">Security dashboard</h1>
         </div>
         <div class="live-pill"><span id="live-dot"></span><span id="live-label">Checking agent</span></div>
@@ -42,7 +57,7 @@
       <section id="dashboard-page" class="page active">
         <div class="hero-card">
           <div>
-            <p class="eyebrow">CRYPTographic RUNTIME</p>
+            <p class="eyebrow">Cryptographic runtime</p>
             <h2>FIPS module assurance</h2>
             <p id="fips-message" class="muted">Reading the local Veloce agent…</p>
           </div>
@@ -78,13 +93,13 @@
         <div class="content-grid">
           <article class="panel">
             <div class="panel-heading">
-              <div><p class="eyebrow">BOUNDARY VIEW</p><h3>Validation components</h3></div>
+              <div><p class="eyebrow">Boundary view</p><h3>Validation components</h3></div>
               <span id="validation-source" class="tag">No live data</span>
             </div>
             <div id="validation-items" class="validation-list"></div>
           </article>
           <article class="panel detail-panel">
-            <div class="panel-heading"><div><p class="eyebrow">MODULE RECORD</p><h3>Build identity</h3></div></div>
+            <div class="panel-heading"><div><p class="eyebrow">Module record</p><h3>Build identity</h3></div></div>
             <dl id="module-record" class="record-list"></dl>
             <div class="boundary-note">
               <strong>Boundary disclosure</strong>
@@ -94,7 +109,7 @@
         </div>
 
         <article id="self-test-panel" class="panel hidden">
-          <div class="panel-heading"><div><p class="eyebrow">ON-DEMAND RESULT</p><h3>Self-tests</h3></div></div>
+          <div class="panel-heading"><div><p class="eyebrow">On-demand result</p><h3>Self-tests</h3></div></div>
           <pre id="self-test-output"></pre>
         </article>
       </section>
@@ -102,14 +117,14 @@
       <section id="qsearch-page" class="page">
         <div class="scan-hero">
           <div>
-            <p class="eyebrow">CRYPTOGRAPHIC DISCOVERY</p>
+            <p class="eyebrow">Cryptographic discovery</p>
             <h2>Find quantum-vulnerable cryptography</h2>
             <p class="muted">Scan source code and certificates locally. No project content leaves this computer.</p>
           </div>
           <div class="scan-controls">
             <label for="scan-path">Folder to scan</label>
             <div class="path-row">
-              <input id="scan-path" type="text" placeholder="Choose a project folder" autocomplete="off">
+              <input id="scan-path" type="text" placeholder="Choose a project folder" autocomplete="off" spellcheck="false">
               <button id="choose-folder" class="secondary-button">Choose folder</button>
               <button id="start-scan" class="primary-button">Start qSearch</button>
             </div>
@@ -117,13 +132,13 @@
         </div>
 
         <div id="scan-progress" class="progress-panel hidden" aria-live="polite">
-          <div class="spinner"></div>
+          <div class="spinner" aria-hidden="true"></div>
           <div><strong>qSearch is scanning</strong><p id="scan-progress-text">Inspecting source and certificates…</p></div>
         </div>
 
         <div id="scan-results" class="hidden">
           <div class="result-heading">
-            <div><p class="eyebrow">LATEST REPORT</p><h2>Discovery results</h2><p id="scan-location" class="muted"></p></div>
+            <div><p class="eyebrow">Latest report</p><h2>Discovery results</h2><p id="scan-location" class="muted"></p></div>
             <button id="open-report" class="secondary-button">Open report folder</button>
           </div>
           <div class="metric-grid scan-metrics">
@@ -134,21 +149,22 @@
           </div>
           <div class="content-grid">
             <article class="panel">
-              <div class="panel-heading"><div><p class="eyebrow">TOP SIGNALS</p><h3>Algorithms by count</h3></div></div>
+              <div class="panel-heading"><div><p class="eyebrow">Top signals</p><h3>Algorithms by count</h3></div></div>
               <div id="algorithm-chart" class="bar-chart"></div>
             </article>
             <article class="panel report-files">
-              <div class="panel-heading"><div><p class="eyebrow">OUTPUT SET</p><h3>Generated evidence</h3></div></div>
+              <div class="panel-heading"><div><p class="eyebrow">Output set</p><h3>Generated evidence</h3></div></div>
               <ul>
                 <li><strong>findings.json / findings.csv</strong><span>Canonical and tabular findings</span></li>
                 <li><strong>cbom.cdx.json</strong><span>CycloneDX 1.6 CBOM</span></li>
                 <li><strong>executive-summary.txt</strong><span>Client-facing summary</span></li>
                 <li><strong>m2302-inventory.json</strong><span>OMB M-23-02 inventory</span></li>
+                <li><strong>workbook-*.csv</strong><span>Light Rider CBOM workbook rows</span></li>
               </ul>
             </article>
           </div>
           <article class="panel findings-panel">
-            <div class="panel-heading"><div><p class="eyebrow">FINDINGS</p><h3>Observed cryptography</h3></div><span id="findings-note" class="tag"></span></div>
+            <div class="panel-heading"><div><p class="eyebrow">Findings</p><h3>Observed cryptography</h3></div><span id="findings-note" class="tag"></span></div>
             <div class="table-wrap">
               <table>
                 <thead><tr><th>Algorithm</th><th>Classification</th><th>Risk</th><th>Asset</th></tr></thead>
@@ -162,7 +178,7 @@
       <section id="entropy-page" class="page">
         <div class="hero-card">
           <div>
-            <p class="eyebrow">RANDOM-BIT GENERATION</p>
+            <p class="eyebrow">Random-bit generation</p>
             <h2>Entropy streaming</h2>
             <p id="entropy-message" class="muted">Reading the local Veloce agent…</p>
           </div>
@@ -196,7 +212,7 @@
 
         <div class="content-grid">
           <article class="panel detail-panel">
-            <div class="panel-heading"><div><p class="eyebrow">STREAMING SPECS</p><h3>Local generator</h3></div></div>
+            <div class="panel-heading"><div><p class="eyebrow">Streaming specs</p><h3>Local generator</h3></div></div>
             <dl id="entropy-specs" class="record-list"></dl>
             <div class="boundary-note">
               <strong>No raw entropy</strong>
@@ -205,13 +221,13 @@
           </article>
           <article class="panel">
             <div class="panel-heading">
-              <div><p class="eyebrow">CLOUD EMS</p><h3>Cloud entropy mix-in</h3></div>
+              <div><p class="eyebrow">Cloud EMS</p><h3>Cloud entropy mix-in</h3></div>
               <span id="mixin-state" class="tag">off</span>
             </div>
             <p class="muted">When enabled, the agent fetches signed entropy packets from the Lightrider EMS and mixes them into the DRBG as additional input. This adds zero credited entropy: the local verified provider stays the only seed and the FIPS claim is unchanged. If EMS is unreachable, mixing is skipped and local operation continues.</p>
             <div class="mixin-row">
               <label class="switch">
-                <input type="checkbox" id="mixin-toggle">
+                <input type="checkbox" id="mixin-toggle" aria-label="Cloud entropy mix-in">
                 <span class="slider"></span>
               </label>
               <span id="mixin-label">Cloud EMS disabled</span>

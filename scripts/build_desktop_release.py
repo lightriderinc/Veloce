@@ -170,6 +170,52 @@ def validate_runtime(runtime: Path, target: str, arch: str = "x86_64") -> None:
              f"(found {', '.join(sorted(agent_architectures))})")
 
 
+BRANDING = ROOT / "assets" / "branding"
+
+
+def application_icon(target: str) -> Path:
+    """Platform icon rendered from assets/branding/veloce.svg."""
+    icon = BRANDING / ("veloce.ico" if target == "windows" else "veloce.icns")
+    if not icon.is_file():
+        fail(f"missing application icon {icon.relative_to(ROOT)}; "
+             "run python3 scripts/gen_branding.py")
+    return icon
+
+
+def rtf_escape(text: str) -> str:
+    """Escape plain text for an RTF body (braces, backslashes, non-ASCII)."""
+    out: List[str] = []
+    for char in text:
+        if char in "\\{}":
+            out.append("\\" + char)
+        elif char == "\n":
+            out.append("\\par\n")
+        elif char == "\t":
+            out.append("\\tab ")
+        elif ord(char) > 127:
+            code = ord(char)
+            if code > 0xFFFF:
+                out.append("?")
+                continue
+            if code > 0x7FFF:
+                code -= 0x10000
+            out.append(f"\\u{code}?")
+        else:
+            out.append(char)
+    return "".join(out)
+
+
+def write_license_rtf(source: Path, target: Path) -> None:
+    """Render LICENSE as RTF for the WixUI license dialog."""
+    text = source.read_text(encoding="utf-8").replace("\r\n", "\n")
+    body = rtf_escape(text)
+    document = ("{\\rtf1\\ansi\\ansicpg1252\\deff0"
+                "{\\fonttbl{\\f0\\fnil Segoe UI;}}\\f0\\fs18 "
+                + body + "}\n")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(document, encoding="ascii")
+
+
 def copy_tree_files(source: Path, destination: Path) -> None:
     for path in source.rglob("*"):
         if path.is_file():
@@ -192,6 +238,8 @@ def pyinstaller_args(stage: Path, output: Path, work: Path,
         "--add-data", f"{ROOT / 'LICENSE'}{separator}licenses",
         "--add-data", f"{ROOT / 'THIRD_PARTY_NOTICES.md'}{separator}licenses",
     ]
+    icon = application_icon(target)
+    args.extend(["--icon", str(icon)])
     if target == "macos":
         args.extend([
             "--osx-bundle-identifier", "com.lightrider.veloce",
@@ -211,7 +259,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--platform", choices=["windows", "macos"], required=True)
     parser.add_argument("--arch", choices=["x86_64", "arm64"], required=True)
-    parser.add_argument("--version", default="1.1.0")
+    parser.add_argument("--version", default="1.2.0")
     parser.add_argument("--runtime-dir", type=Path,
                         help="native bin/ + lib/ payload for live FIPS operation")
     parser.add_argument("--discovery-only", action="store_true",
@@ -285,6 +333,10 @@ def main() -> int:
                              "Resources" / "release-manifest.json")
     packaged_manifest.parent.mkdir(parents=True, exist_ok=True)
     packaged_manifest.write_text(manifest_text, encoding="utf-8")
+    if args.platform == "windows":
+        license_rtf = build_root / "license.rtf"
+        write_license_rtf(ROOT / "LICENSE", license_rtf)
+        print(f"installer license: {license_rtf}")
     print(f"desktop release payload: {output}")
     print(f"release manifest: {manifest_path}")
     return 0

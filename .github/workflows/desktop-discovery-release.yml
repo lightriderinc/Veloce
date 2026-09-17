@@ -6,14 +6,14 @@ on:
       version:
         description: Version embedded in artifact names
         required: true
-        default: 1.0.0
+        default: 1.2.0
 
 permissions:
   contents: read
 
 jobs:
   windows:
-    name: Windows x86-64 UI and qSearch
+    name: Windows x86-64 UI, qSearch, and MSI
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,20 +25,23 @@ jobs:
         run: |
           rustup default stable
           python -m pip install -r desktop\requirements-build.txt
-      - name: Verify desktop and release contracts
+          dotnet tool install --global wix
+      - name: Verify desktop, release, and Windows artifact contracts
         shell: pwsh
-        run: python -m pytest -q tests\test_desktop.py
-      - name: Build portable executable release
+        run: python -m pytest -q tests\test_desktop.py tests\test_windows_artifacts.py
+      - name: Build portable ZIP, MSI, and checksums
         shell: pwsh
         run: |
           .\installer\windows\build-release.ps1 `
             -Version "${{ inputs.version }}" `
-            -DiscoveryOnly `
-            -SkipMsi
+            -DiscoveryOnly
       - uses: actions/upload-artifact@v4
         with:
           name: veloce-${{ inputs.version }}-windows-x86_64-discovery
-          path: build/dist/veloce-${{ inputs.version }}-windows-x86_64.zip
+          path: |
+            build/dist/veloce-${{ inputs.version }}-windows-x86_64.zip
+            build/dist/veloce-${{ inputs.version }}-windows-x86_64.msi
+            build/dist/SHA256SUMS-windows-x86_64.txt
           if-no-files-found: error
 
   macos:
@@ -54,7 +57,7 @@ jobs:
           rustup default stable
           python3 -m pip install -r desktop/requirements-build.txt
       - name: Verify desktop and release contracts
-        run: python3 -m pytest -q tests/test_desktop.py
+        run: python3 -m pytest -q tests/test_desktop.py tests/test_macos_artifacts.py
       - name: Detect architecture
         id: arch
         run: echo "value=$(uname -m)" >> "$GITHUB_OUTPUT"

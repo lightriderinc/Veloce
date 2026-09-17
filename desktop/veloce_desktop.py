@@ -27,7 +27,7 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import parse_qs, urlparse
 
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 MAX_REQUEST_BYTES = 64 * 1024
 MAX_UI_FINDINGS = 500
 
@@ -555,6 +555,7 @@ class DesktopHandler(BaseHTTPRequestHandler):
             "/index.html": ("desktop/static/index.html", "text/html; charset=utf-8"),
             "/app.js": ("desktop/static/app.js", "application/javascript; charset=utf-8"),
             "/styles.css": ("desktop/static/styles.css", "text/css; charset=utf-8"),
+            "/favicon.svg": ("desktop/static/favicon.svg", "image/svg+xml"),
         }
         item = files.get(request_path)
         if item is None:

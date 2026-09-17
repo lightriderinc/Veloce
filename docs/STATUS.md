@@ -1,8 +1,44 @@
 # Veloce V1 status: pre-release
 
 Spec: plan/veloce-engineering-guide.pdf (v0.3, 2026-08-27).
-Date: 2026-08-27. Version: 1.1.0. Platform validated by this run: Linux
+Date: 2026-09-17. Version: 1.2.0. Platform validated by this run: Linux
 x86-64. Gate battery: `bash scripts/run_gates.sh` -- all tests passing.
+
+## 1.2.0: Windows release track and desktop interface
+
+The Windows release moved from a bare PyInstaller payload to a branded,
+verifiable deliverable (docs/windows.md, docs/desktop-releases.md):
+
+1. **Brand assets.** `assets/branding/veloce.svg` is the single source for
+   the mark; `scripts/gen_branding.py` renders the committed `veloce.ico`,
+   `veloce.icns`, `veloce-256.png`, and the WixUI banner and dialog bitmaps.
+   `Veloce.exe`, the Start Menu shortcut, and the Apps and features entry
+   carry the icon.
+2. **MSI.** `installer/windows/veloce.wxs` (WiX v5) adds the icon, the
+   license dialog rendered from LICENSE at build time, and the
+   install-directory dialog with Lightrider artwork. `build-release.ps1`
+   adds optional Authenticode signing (`-CertificateThumbprint`; `lib\` is
+   never signed because those files are hash recorded) and writes an
+   `sha256sum -c` compatible `SHA256SUMS-windows-x86_64.txt`. The GitHub
+   workflow now builds the discovery-only MSI as well as the ZIP.
+3. **Launcher.** `installer/windows/veloce-fire-up.ps1` mirrors the Linux and
+   macOS launchers: build-record-driven configuration under
+   `%LOCALAPPDATA%\Lightrider\Veloce`, agent start on the named pipe, status
+   and self-test output, `-Stop`. `scripts/gen_config.py` resolves library
+   names from build records on all platforms and supports the Windows pipe.
+4. **Vendor facts recorded.** The Windows FIPS DLL path (`DLL Release|x64`
+   with the vendor v5.2.1 `user_settings.h`) and the pending publication of
+   the Windows 11 OE are documented; the claim stays `pending_publication`.
+
+The desktop interface was redesigned for readability: light appearance by
+default following the system dark setting, system type stack, a single type
+scale with sentence-case labels, neutral surfaces, and the Lightrider
+gradient (yellow, amber, orange, red, crimson, sampled from the brand mark)
+as the accent for the brand ring, primary actions, indicators, and progress
+fills. State colors are reserved for live status. Behavior, element IDs, and
+the local API are unchanged; the page gained `/favicon.svg`.
+`tests/test_windows_artifacts.py` locks the Windows artifacts and the page
+contract. Native execution of the Windows runtime remains an open item.
 
 ## 1.1.0: the macOS track is implemented
 
@@ -56,7 +92,7 @@ entropy is never displayed. The CLI gained `veloce mixin on|off`.
 | G1 | Entropy pipeline + PQC KATs and failure injection | GREEN on Linux. Seed path proven: the DRBG only seeds through the Lightrider callback (verified-block counters > 0, zero health failures). PQC PCT + negative tests pass. Windows/macOS native runs still pending platform libraries. |
 | G2 | qSearch detects planted crypto, reports blind spots | GREEN. JSON/CSV/CycloneDX/M-23-02/workbook outputs verified. |
 | G3 | TLS + EMS | PARTIAL. EMS-disabled zero-network test green; mix-in state machine and desktop/CLI controls green. Hybrid TLS data plane still pending the full TLS library build. |
-| G4 | Security battery + packaging | PARTIAL. IPC hardening, redaction, zeroization green on Linux. Native Windows/macOS signing and installer tests pending. |
+| G4 | Security battery + packaging | PARTIAL. IPC hardening, redaction, zeroization green on Linux. Windows MSI, icon, signing path, checksums, and launcher implemented and statically tested (tests/test_windows_artifacts.py); native Windows/macOS signing and installer execution pending. |
 
 ## Pre-release build
 
@@ -70,7 +106,8 @@ wolfSSL source leaks in.
 - CMVP publication of the tested Windows/Azure OEs on certificate #4718
   (wolfSSL notifies; flips the Windows claim on).
 - Hybrid TLS sample pair (G3) needs the autotools TLS+MLKEM build.
-- Native Windows/macOS FIPS runtime validation on real hosts (G1/G4).
+- Native Windows/macOS FIPS runtime validation on real hosts (G1/G4):
+  Windows steps are documented in docs/windows.md.
 - ems-egress `stream.rs` is corrupted at platform HEAD and does not compile;
   platform team fix required before S3 streaming integration. The
   request/response entropy path Veloce uses first is unaffected.

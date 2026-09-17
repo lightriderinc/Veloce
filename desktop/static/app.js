@@ -19,11 +19,15 @@ async function api(path, options = {}) {
   return payload;
 }
 
-function showToast(message) {
+let toastTimer = null;
+
+function showToast(message, tone = "error") {
   const toast = byId("toast");
   toast.textContent = message;
-  toast.classList.remove("hidden");
-  window.setTimeout(() => toast.classList.add("hidden"), 6500);
+  toast.classList.remove("hidden", "error", "success", "info");
+  toast.classList.add(tone);
+  if (toastTimer) window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => toast.classList.add("hidden"), 6500);
 }
 
 function setText(id, value) {
@@ -222,7 +226,7 @@ async function toggleMixin() {
   toggle.disabled = true;
   try {
     await api("/api/entropy/mixin", {method: "POST", body: JSON.stringify({enabled: toggle.checked})});
-    showToast(toggle.checked ? "Cloud entropy mix-in enabled." : "Cloud entropy mix-in disabled.");
+    showToast(toggle.checked ? "Cloud entropy mix-in enabled." : "Cloud entropy mix-in disabled.", "success");
   } catch (error) {
     toggle.checked = !toggle.checked;
     showToast(error.message);
@@ -326,7 +330,7 @@ async function initialize() {
     const info = await api("/api/platform");
     setText("platform-label", `${info.platform} ${info.machine}\nVeloce Desktop ${info.app_version}`);
     byId("start-scan").disabled = !info.qsearch_available;
-    if (!info.qsearch_available) showToast("qSearch is not bundled with this desktop build.");
+    if (!info.qsearch_available) showToast("qSearch is not bundled with this desktop build.", "info");
   } catch (error) {
     showToast(error.message);
   }

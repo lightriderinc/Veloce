@@ -194,7 +194,7 @@ cp "$FIPS_OUT/build-record.json" "$RUNTIME/lib/wolfcrypt-fips.build-record.json"
 cp "$PQC_OUT/libveloce-pqc.dylib" "$RUNTIME/lib/"
 cp "$PQC_OUT/build-record.json" "$RUNTIME/lib/veloce-pqc.build-record.json"
 
-VER="${VELOCE_VERSION:-1.1.0}"
+VER="${VELOCE_VERSION:-1.2.0}"
 DIST="$ROOT/build/dist/veloce-$VER-macos-$ARCH"
 rm -rf "$DIST"
 mkdir -p "$DIST/bin" "$DIST/lib" "$DIST/docs"

@@ -1,5 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<!--
+  Veloce Desktop MSI (WiX Toolset v5).
+
+  Build inputs (passed by installer/windows/build-release.ps1):
+    PayloadDir      PyInstaller one-directory payload containing Veloce.exe
+    ProductVersion  release version, for example 1.2.0
+    BrandingDir     assets/branding (veloce.ico, wix-banner.bmp, wix-dialog.bmp)
+    LicenseRtf      RTF rendering of LICENSE written by the desktop packager
+
+  The lib\ payload holds the hash-recorded FIPS module and PQC provider. The
+  installer copies those files byte for byte; it never patches or signs them.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package Name="Veloce Desktop"
            Manufacturer="Lightrider Inc"
            Version="$(ProductVersion)"
@@ -8,6 +21,18 @@
     <MajorUpgrade DowngradeErrorMessage="A newer Veloce Desktop version is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
+    <!-- Brand identity: executable, Start Menu shortcut, Apps and features entry -->
+    <Icon Id="VeloceIcon" SourceFile="$(BrandingDir)\veloce.ico" />
+    <Property Id="ARPPRODUCTICON" Value="VeloceIcon" />
+    <Property Id="ARPCOMMENTS" Value="Veloce PQC SDK: qSearch cryptographic discovery and FIPS 140-3 validation dashboard" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+
+    <!-- Installer dialogs carry the Lightrider artwork (spec 7.3) -->
+    <WixVariable Id="WixUILicenseRtf" Value="$(LicenseRtf)" />
+    <WixVariable Id="WixUIBannerBmp" Value="$(BrandingDir)\wix-banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="$(BrandingDir)\wix-dialog.bmp" />
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="Veloce">
         <Component Id="VeloceDesktopExecutable" Guid="*">
@@ -15,7 +40,9 @@
             <Shortcut Id="VeloceStartMenuShortcut"
                       Directory="ProgramMenuFolder"
                       Name="Veloce Desktop"
-                      WorkingDirectory="INSTALLFOLDER" />
+                      Description="qSearch cryptographic discovery and FIPS validation dashboard"
+                      WorkingDirectory="INSTALLFOLDER"
+                      Icon="VeloceIcon" />
           </File>
         </Component>
       </Directory>
