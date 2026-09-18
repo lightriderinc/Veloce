@@ -146,8 +146,8 @@ json.dump({
     "source_version": "wolfssl-5.9.2-stable (public tree, same release as the licensed FIPS bundle)",
     "source_provenance_note": "standalone wc_mlkem/wc_mldsa/sha3 compilation (spec Appendix A fallback); distributed as object code under the Lightrider commercial wolfSSL agreement; vendor confirmation open item (spec 5.3)",
     "pqc_inside_fips_boundary": False,
-    "algorithms": ["ML-KEM-768 (FIPS 203)", "ML-DSA-65 (FIPS 204)"],
-    "build_flags": "WOLFSSL_HAVE_MLKEM WOLFSSL_HAVE_MLDSA WOLFSSL_SHA3 SHAKE128/256 WC_MLKEM_FAULT_HARDEN WC_RNG_SEED_CB SINGLE_THREADED",
+    "algorithms": ["ML-KEM-768 (FIPS 203)", "ML-DSA-65 (FIPS 204)", "Ed25519 verify (RFC 8032; EMS receipt verification only)"],
+    "build_flags": "WOLFSSL_HAVE_MLKEM WOLFSSL_HAVE_MLDSA WOLFSSL_SHA3 SHAKE128/256 WC_MLKEM_FAULT_HARDEN WC_RNG_SEED_CB HAVE_ED25519(verify-only) WOLFSSL_SHA512 SINGLE_THREADED",
     "compiler": cc,
     "operating_environment": "macOS " + mac + " " + platform.machine(),
 }, open(out, "w"), indent=2)
